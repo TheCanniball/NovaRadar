@@ -51,9 +51,7 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       // Use release key if configured (keystore exists), otherwise debug key for CI
       val relCfg = signingConfigs.findByName("release")
-      if (relCfg != null && relCfg.storeFile != null) {
-        signingConfig = relCfg
-      }
+      signingConfig = if (relCfg?.storeFile != null) relCfg else signingConfigs.getByName("debugConfig")
     }
     debug {
       signingConfig = signingConfigs.getByName("debugConfig")
