@@ -113,5 +113,6 @@ The project possesses unit-testing mechanisms including **Robolectric** tests fo
 
 For team members expanding the security scanner:
 1.  **Network Socket Binding**: Replace simulation flows with real `java.net.Socket` and `NetworkInterface` classes to capture active local network subnets and probe ping sweeps.
-2.  **Multiprofile Configurations**: Extend the Room entity configurations in `com.example.data` to store custom scanning presets and port ranges.
+2.  **Multiprofile Configurations**: Extend the Room entity configurations in `com.novaradar.app.data` to store custom scanning presets and port ranges.
 3.  **WLAN Sniffing**: Integrate runtime permissions requesting ACCESS_FINE_LOCATION and network statuses to analyze active Wi-Fi channel spectrums.
+
