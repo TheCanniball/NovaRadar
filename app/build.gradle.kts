@@ -26,20 +26,15 @@ android {
   signingConfigs {
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/nova-radar-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = "NovaRadar2026"
-      keyAlias = "nova-radar"
-      keyPassword = "NovaRadar2026"
-      enableV1Signing = true
-      enableV2Signing = true
-    }
-    create("tempRelease") {
-      storeFile = file("${rootDir}/temp-release-key.jks")
-      storePassword = "password123"
-      keyAlias = "nova-radar"
-      keyPassword = "password123"
-      enableV1Signing = true
-      enableV2Signing = true
+      val keystoreFile = file(keystorePath)
+      if (keystoreFile.exists()) {
+        storeFile = keystoreFile
+        storePassword = "NovaRadar2026"
+        keyAlias = "nova-radar"
+        keyPassword = "NovaRadar2026"
+        enableV1Signing = true
+        enableV2Signing = true
+      }
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
@@ -54,11 +49,14 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      // Use official release key for signing
-      signingConfig = signingConfigs.getByName("release")
+      // Use release key if configured (keystore exists), otherwise debug key for CI
+      val relCfg = signingConfigs.findByName("release")
+      if (relCfg != null && relCfg.storeFile != null) {
+        signingConfig = relCfg
+      }
     }
     debug {
-      signingConfig = signingConfigs.getByName("debug")
+      signingConfig = signingConfigs.getByName("debugConfig")
     }
   }
 
