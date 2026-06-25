@@ -362,9 +362,10 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
             val candidates = mutableListOf<Triple<String, Int, Int>>() // IP, Port, SourceId
             val allTargets = mutableListOf<Triple<String, Int, Int>>()
 
-            // Generate all potential targets
+            // Generate all potential targets (matching Go: ~512 random IPs across CIDRs)
+            val perSubnetCount = (512 / activeSources.size.coerceAtLeast(1)).coerceAtLeast(10)
             for (source in activeSources) {
-                val subnetIPs = generateIpsForSubnet(source.cidr, 150)
+                val subnetIPs = generateIpsForSubnet(source.cidr, perSubnetCount)
                 for (ip in subnetIPs) {
                     for (p in activePorts) {
                         allTargets.add(Triple(ip, p.port, source.id))
@@ -376,8 +377,8 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
             val totalToScan = allTargets.size
             var progress = 0
 
-            // --- PHASE 1: QUICK SCAN (TCP CONNECT) ---
-            val quickConcurrency = 100
+            // --- PHASE 1: QUICK SCAN (TCP CONNECT) matching Go concurrency=800 ---
+            val quickConcurrency = 800
             val quickChunks = allTargets.chunked(quickConcurrency)
 
             for (chunk in quickChunks) {
@@ -411,9 +412,9 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
             addToLogs("✔ QUICK SCAN COMPLETE. FOUND ${candidates.size} CANDIDATES.")
             addToLogs("====== [STAGE 2] DEEP PROTOCOL VERIFICATION ======")
 
-            // --- PHASE 2: DEEP TEST (REAL TLS/TCP HANDSHAKE) ---
+            // --- PHASE 2: DEEP TEST (REAL TLS/TCP HANDSHAKE) matching Go concurrency=100 ---
             // Matches Go core: 3 attempts per candidate, pass if >= 2 succeed
-            val deepConcurrency = 50
+            val deepConcurrency = 100
             val verifiedTempList = mutableListOf<AliveIp>()
             var totalDeadAttempts = 0
 

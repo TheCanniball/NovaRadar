@@ -148,14 +148,11 @@ fun MainAppLayout(viewModel: NovaRadarViewModel) {
                         .padding(horizontal = 20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Adaptive brand picture logo matching dimensions of menu item
+                    // Adaptive brand picture logo
                     Image(
                         painter = painterResource(id = R.drawable.img_nova_radar_logo_1781975654739),
                         contentDescription = "Nova Radar Logo",
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                        modifier = Modifier.size(40.dp),
                         contentScale = ContentScale.Fit
                     )
 
