@@ -11,8 +11,17 @@ Write-Host "=========================================================" -Foregrou
 Write-Host "Starting build execution..."
 Write-Host ""
 
-# STAGE 1: Environment & Java Check
-Write-Host "[STAGE 1/6] Checking Local Development Environment..." -ForegroundColor Yellow
+# STAGE 1: Play Protect Safety Check
+Write-Host "[STAGE 1/7] Running Play Protect Safety Check..." -ForegroundColor Yellow
+try {
+    & "$PSScriptRoot\scripts\check-play-protect.ps1"
+    Write-Host "✔ Play Protect check passed." -ForegroundColor Green
+} catch {
+    Write-Warning "Play Protect check found potential issues (review above). Continuing build anyway..."
+}
+
+# STAGE 2: Environment & Java Check
+Write-Host "[STAGE 2/7] Checking Local Development Environment..." -ForegroundColor Yellow
 if ($null -eq (Get-Command java -ErrorAction SilentlyContinue)) {
     Write-Error "ERROR: Java Development Kit (JDK) is not installed or not added to your system PATH. Please install JDK 17 or newer."
 }
@@ -21,14 +30,14 @@ Write-Host "✔ Java is available on your machine." -ForegroundColor Green
 Write-Host "System Java details:`n$javaVersion" -ForegroundColor Gray
 
 # STAGE 2: Workspace Verification
-Write-Host "[STAGE 2/6] Verifying Project Workspace..." -ForegroundColor Yellow
+Write-Host "[STAGE 3/7] Verifying Project Workspace..." -ForegroundColor Yellow
 if (-not (Test-Path "build.gradle.kts") -or -not (Test-Path "settings.gradle.kts")) {
     Write-Error "ERROR: Could not find gradle files in the current folder. Please execute this script from the workspace root directory."
 }
 Write-Host "✔ Gradle build configurations verified." -ForegroundColor Green
 
 # STAGE 3: Clean previous builds
-Write-Host "[STAGE 3/6] Cleaning Previous Build Residues..." -ForegroundColor Yellow
+Write-Host "[STAGE 4/7] Cleaning Previous Build Residues..." -ForegroundColor Yellow
 try {
     if (Get-Command "./gradlew.bat" -ErrorAction SilentlyContinue) {
         Write-Host "Executing gradle clean on Windows..." -ForegroundColor Gray
@@ -46,7 +55,7 @@ try {
 }
 
 # STAGE 4: Run Unit and Integration Tests
-Write-Host "[STAGE 4/6] Executing Local Domain & Theme Tests..." -ForegroundColor Yellow
+Write-Host "[STAGE 5/7] Executing Local Domain & Theme Tests..." -ForegroundColor Yellow
 try {
     if (Get-Command "./gradlew.bat" -ErrorAction SilentlyContinue) {
         & ./gradlew.bat testDebugUnitTest
@@ -61,7 +70,7 @@ try {
 }
 
 # STAGE 5: Source Generation & Code Quality Audit
-Write-Host "[STAGE 5/6] Generating Kotlin Sources and KSP Models..." -ForegroundColor Yellow
+Write-Host "[STAGE 6/7] Generating Kotlin Sources and KSP Models..." -ForegroundColor Yellow
 try {
     if (Get-Command "./gradlew.bat" -ErrorAction SilentlyContinue) {
         & ./gradlew.bat compileDebugSources
@@ -76,16 +85,16 @@ try {
 }
 
 # STAGE 6: Assemble Artifact & Generate APK
-Write-Host "[STAGE 6/6] Assembling Final Android Package (APK)..." -ForegroundColor Yellow
+Write-Host "[STAGE 7/7] Assembling Final Android Package (APK)..." -ForegroundColor Yellow
 try {
     if (Get-Command "./gradlew.bat" -ErrorAction SilentlyContinue) {
-        & ./gradlew.bat assembleDebug
+        & ./gradlew.bat assembleRelease
     } elseif (Get-Command "./gradlew" -ErrorAction SilentlyContinue) {
-        & ./gradlew assembleDebug
+        & ./gradlew assembleRelease
     } else {
-        & gradle :app:assembleDebug
+        & gradle :app:assembleRelease
     }
-    Write-Host "✔ Debug compilation completed and APK generated successfully!" -ForegroundColor Green
+    Write-Host "✔ Release compilation completed and APK generated successfully!" -ForegroundColor Green
 } catch {
     Write-Error "ERROR: Packaging failed during binary compilation."
 }
@@ -94,6 +103,9 @@ Write-Host ""
 Write-Host "=========================================================" -ForegroundColor Green
 Write-Host "                 BUILD SUCCESSFUL                       " -ForegroundColor Green
 Write-Host "=========================================================" -ForegroundColor Green
-Write-Host "Generated Artifact Path: app/build/outputs/apk/debug/app-debug.apk" -ForegroundColor Cyan
+Write-Host "Generated APKs:" -ForegroundColor Cyan
+Get-ChildItem -Path "app/build/outputs/apk/release/*.apk" | ForEach-Object {
+    Write-Host "  $($_.Name) ($([math]::Round($_.Length/1MB, 2)) MB)" -ForegroundColor Cyan
+}
 Write-Host "You are ready to load the APK onto your device or emulator." -ForegroundColor Gray
 Write-Host "=========================================================" -ForegroundColor Green
