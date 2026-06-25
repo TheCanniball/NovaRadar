@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 @Database(
     entities = [IpSource::class, PortConfig::class, ScanHistory::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class NovaRadarDatabase : RoomDatabase() {
@@ -80,19 +80,19 @@ abstract class NovaRadarDatabase : RoomDatabase() {
             val defaultSources = listOf(
                 IpSource(1, "Cloudflare Official 1", "کلودفلر رسمی ۱", "103.21.244.0/22", "https://www.cloudflare.com/ips-v4/", "cidr", true),
                 IpSource(2, "Cloudflare Official 2", "کلودفلر رسمی ۲", "103.22.200.0/22", "https://www.cloudflare.com/ips-v4/", "cidr", true),
-                IpSource(3, "Cloudflare Official 3", "کلودفلر رسمی ۳", "103.31.4.0/22", "https://www.cloudflare.com/ips-v4/", "cidr", true),
-                IpSource(4, "Cloudflare Official 4", "کلودفلر رسمی ۴", "104.16.0.0/13", "https://www.cloudflare.com/ips-v4/", "cidr", true),
-                IpSource(5, "Cloudflare Official 5", "کلودفلر رسمی ۵", "104.24.0.0/14", "https://www.cloudflare.com/ips-v4/", "cidr", true),
-                IpSource(6, "Cloudflare Official 6", "کلودفلر رسمی ۶", "108.162.192.0/18", "https://www.cloudflare.com/ips-v4/", "cidr", true),
-                IpSource(7, "Cloudflare Official 7", "کلودفلر رسمی ۷", "131.0.72.0/22", "https://www.cloudflare.com/ips-v4/", "cidr", true),
-                IpSource(8, "Cloudflare Official 8", "کلودفلر رسمی ۸", "141.101.64.0/18", "https://www.cloudflare.com/ips-v4/", "cidr", true),
-                IpSource(9, "Cloudflare Official 9", "کلودفلر رسمی ۹", "162.158.0.0/15", "https://www.cloudflare.com/ips-v4/", "cidr", true),
-                IpSource(10, "Cloudflare Official 10", "کلودفلر رسمی ۱۰", "172.64.0.0/13", "https://www.cloudflare.com/ips-v4/", "cidr", true),
-                IpSource(11, "Cloudflare Official 11", "کلودفلر رسمی ۱۱", "173.245.48.0/20", "https://www.cloudflare.com/ips-v4/", "cidr", true),
-                IpSource(12, "Cloudflare Official 12", "کلودفلر رسمی ۱۲", "188.114.96.0/20", "https://www.cloudflare.com/ips-v4/", "cidr", true),
-                IpSource(13, "Cloudflare Official 13", "کلودفلر رسمی ۱۳", "190.93.240.0/20", "https://www.cloudflare.com/ips-v4/", "cidr", true),
-                IpSource(14, "Cloudflare Official 14", "کلودفلر رسمی ۱۴", "197.234.240.0/22", "https://www.cloudflare.com/ips-v4/", "cidr", true),
-                IpSource(15, "Cloudflare Official 15", "کلودفلر رسمی ۱۵", "198.41.128.0/17", "https://www.cloudflare.com/ips-v4/", "cidr", true),
+                IpSource(3, "Cloudflare Official 3", "کلودفلر رسمی ۳", "103.31.4.0/22", "https://www.cloudflare.com/ips-v4/", "cidr", false),
+                IpSource(4, "Cloudflare Official 4", "کلودفلر رسمی ۴", "104.16.0.0/13", "https://www.cloudflare.com/ips-v4/", "cidr", false),
+                IpSource(5, "Cloudflare Official 5", "کلودفلر رسمی ۵", "104.24.0.0/14", "https://www.cloudflare.com/ips-v4/", "cidr", false),
+                IpSource(6, "Cloudflare Official 6", "کلودفلر رسمی ۶", "108.162.192.0/18", "https://www.cloudflare.com/ips-v4/", "cidr", false),
+                IpSource(7, "Cloudflare Official 7", "کلودفلر رسمی ۷", "131.0.72.0/22", "https://www.cloudflare.com/ips-v4/", "cidr", false),
+                IpSource(8, "Cloudflare Official 8", "کلودفلر رسمی ۸", "141.101.64.0/18", "https://www.cloudflare.com/ips-v4/", "cidr", false),
+                IpSource(9, "Cloudflare Official 9", "کلودفلر رسمی ۹", "162.158.0.0/15", "https://www.cloudflare.com/ips-v4/", "cidr", false),
+                IpSource(10, "Cloudflare Official 10", "کلودفلر رسمی ۱۰", "172.64.0.0/13", "https://www.cloudflare.com/ips-v4/", "cidr", false),
+                IpSource(11, "Cloudflare Official 11", "کلودفلر رسمی ۱۱", "173.245.48.0/20", "https://www.cloudflare.com/ips-v4/", "cidr", false),
+                IpSource(12, "Cloudflare Official 12", "کلودفلر رسمی ۱۲", "188.114.96.0/20", "https://www.cloudflare.com/ips-v4/", "cidr", false),
+                IpSource(13, "Cloudflare Official 13", "کلودفلر رسمی ۱۳", "190.93.240.0/20", "https://www.cloudflare.com/ips-v4/", "cidr", false),
+                IpSource(14, "Cloudflare Official 14", "کلودفلر رسمی ۱۴", "197.234.240.0/22", "https://www.cloudflare.com/ips-v4/", "cidr", false),
+                IpSource(15, "Cloudflare Official 15", "کلودفلر رسمی ۱۵", "198.41.128.0/17", "https://www.cloudflare.com/ips-v4/", "cidr", false),
                 IpSource(16, "Foreign Domains", "دامنه‌های خارجی", "", "https://raw.githubusercontent.com/Blacknuno/Nova-Proxy/refs/heads/main/dominos.text", "domain", false),
                 IpSource(17, "Iranian Domains", "دامنه‌های ایرانی", "", "https://raw.githubusercontent.com/Blacknuno/Nova-Proxy/refs/heads/main/IRdominos.text", "domain", false)
             )
