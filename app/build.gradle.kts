@@ -29,9 +29,9 @@ android {
       val keystoreFile = file(keystorePath)
       if (keystoreFile.exists()) {
         storeFile = keystoreFile
-        storePassword = "NovaRadar2026"
-        keyAlias = "nova-radar"
-        keyPassword = "NovaRadar2026"
+        storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "NovaRadar2026"
+        keyAlias = System.getenv("KEY_ALIAS") ?: "nova-radar"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: "NovaRadar2026"
         enableV1Signing = true
         enableV2Signing = true
       }
@@ -86,9 +86,10 @@ android {
 
 androidComponents {
     onVariants { variant ->
+        val versionName = android.defaultConfig.versionName ?: "1.0.0"
         variant.outputs.forEach { output ->
             val abi = output.filters.find { it.filterType.name == "ABI" }?.identifier ?: "universal"
-            output.outputFileName.set("NovaRadar-v1.0.01-$abi-release.apk")
+            output.outputFileName.set("NovaRadar-v$versionName-$abi-release.apk")
         }
     }
 }
@@ -158,6 +159,7 @@ dependencies {
 // Custom task to automatically download Vazirmatn Persian fonts during build
 tasks.register("downloadVazirFonts") {
     notCompatibleWithConfigurationCache("Downloads fonts dynamically")
+    outputs.upToDateWhen { false }
     doLast {
         val fontDir = file("src/main/res/font")
         if (!fontDir.exists()) {
