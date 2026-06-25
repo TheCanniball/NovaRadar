@@ -35,6 +35,8 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import kotlin.random.Random
 
+// Play Protect trigger: trust-all SSL context. REQUIRED for scanner (TLS to random IPs with custom SNI).
+// KEEP SCOPED to deepTestConnect only. Run scripts/check-play-protect.ps1 before adding new usages.
 private val trustAllSSLContext by lazy {
     val trustAll = arrayOf<TrustManager>(object : X509TrustManager {
         override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
