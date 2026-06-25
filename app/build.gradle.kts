@@ -10,26 +10,28 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  namespace = "com.novaradar.app"
   compileSdk = 36
 
   defaultConfig {
-    applicationId = "com.aistudio.novaradar.pqlzwa"
+    applicationId = "com.novaradar.app"
     minSdk = 24
-    targetSdk = 34
+    targetSdk = 35
     versionCode = 1
-    versionName = "1.0.0"
+    versionName = "1.0.01"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/nova-radar-key.jks"
       storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      storePassword = "NovaRadar2026"
+      keyAlias = "nova-radar"
+      keyPassword = "NovaRadar2026"
+      enableV1Signing = true
+      enableV2Signing = true
     }
     create("tempRelease") {
       storeFile = file("${rootDir}/temp-release-key.jks")
@@ -52,13 +54,15 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      // Use temporary release key for signing
-      signingConfig = signingConfigs.getByName("tempRelease")
+      // Use official release key for signing
+      signingConfig = signingConfigs.getByName("release")
     }
     debug {
-      signingConfig = null
+      signingConfig = signingConfigs.getByName("debug")
     }
   }
+
+  // APK output renaming is now handled via the androidComponents API in AGP 9.0+
 
   lint {
     checkReleaseBuilds = false
@@ -82,6 +86,15 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            val abi = output.filters.find { it.filterType.name == "ABI" }?.identifier ?: "universal"
+            output.outputFileName.set("NovaRadar-v1.0.01-$abi-release.apk")
+        }
+    }
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
@@ -197,4 +210,5 @@ tasks.register("downloadVazirFonts") {
 tasks.matching { it.name == "preBuild" }.all {
     dependsOn("downloadVazirFonts")
 }
+
 
