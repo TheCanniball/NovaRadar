@@ -36,12 +36,6 @@ android {
         enableV2Signing = true
       }
     }
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
-    }
   }
 
   buildTypes {
@@ -49,12 +43,12 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      // Use release key if configured (keystore exists), otherwise debug key for CI
+      // Use release key if keystore available (local or CI), otherwise unsigned (won't validate)
       val relCfg = signingConfigs.findByName("release")
-      signingConfig = if (relCfg?.storeFile != null) relCfg else signingConfigs.getByName("debugConfig")
+      signingConfig = if (relCfg?.storeFile != null) relCfg else null
     }
     debug {
-      signingConfig = signingConfigs.getByName("debugConfig")
+      // AGP uses its default debug keystore (~/.android/debug.keystore) automatically
     }
   }
 
