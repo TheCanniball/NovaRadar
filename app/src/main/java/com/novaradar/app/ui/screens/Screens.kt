@@ -183,11 +183,11 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 96.dp, bottom = 100.dp)
                 .padding(horizontal = 14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(96.dp))
+
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 Column(
                     modifier = Modifier.weight(1f),
@@ -308,7 +308,8 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .verticalScroll(dashboardScrollState),
+                                .verticalScroll(dashboardScrollState)
+                                .padding(bottom = 120.dp), // Extra space to scroll past the bottom bar
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // Radar (Perfect Circle with adaptive size)
@@ -344,7 +345,7 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
                                     
                                     // Crosshair lines
                                     drawLine(color = Color(0xFF00FF66).copy(alpha = 0.2f), start = Offset(center.x - radius * 0.94f, center.y), end = Offset(center.x + radius * 0.94f, center.y), strokeWidth = 1f)
-                                    drawLine(color = Color(0xFF00FF66).copy(alpha = 0.2f), start = Offset(center.y, center.y - radius * 0.94f), end = Offset(center.x, center.y + radius * 0.94f), strokeWidth = 1f)
+                                    drawLine(color = Color(0xFF00FF66).copy(alpha = 0.2f), start = Offset(center.x, center.y - radius * 0.94f), end = Offset(center.x, center.y + radius * 0.94f), strokeWidth = 1f)
                                     
                                     val sweepAlphaMultiplier = if (isScanning) 1.0f else 0.15f
                                     
@@ -375,6 +376,188 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
                                     }
                                 }
                             }
+
+                            // Scan status HUD line (subnet only — counts in stat boxes below)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (!isLightTheme) Color(0xFF0A0E1A).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.3f))
+                                    .border(1.dp, Color(0xFF00FF66).copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(if (isScanning) Color(0xFF00FF66) else Color(0xFF00FF66).copy(alpha = 0.3f)))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = if (isScanning) subnetScanning.ifEmpty { "SCANNING..." } else "STANDBY",
+                                            fontFamily = FontFamily.Monospace, fontSize = 8.sp,
+                                            color = Color(0xFF00FF66).copy(alpha = 0.8f), letterSpacing = 1.sp
+                                        )
+                                    }
+                                    Text("ETA $eta", fontFamily = FontFamily.Monospace, fontSize = 8.sp, color = Color(0xFFFBBF24).copy(alpha = 0.7f))
+                                }
+                            }
+
+                            // 4 Stat Boxes (2x2 grid, fixed-width values)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                                        .background(if (!isLightTheme) Color(0xFF0A0E1A).copy(alpha = 0.4f) else Color.White.copy(alpha = 0.25f))
+                                        .border(0.5.dp, Color(0xFF00FF66).copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(modifier = Modifier.size(24.dp).clip(CircleShape).background(Color(0xFF00FF66).copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.Radar, null, tint = Color(0xFF00FF66).copy(alpha = 0.7f), modifier = Modifier.size(14.dp))
+                                        }
+                                        Spacer(Modifier.width(6.dp))
+                                        Column {
+                                            Text("SCANNED", fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color(0xFF00FF66).copy(alpha = 0.5f), letterSpacing = 1.sp)
+                                            Text(String.format("%5d", scannedCount),
+                                                fontFamily = FontFamily.Monospace, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                                        }
+                                    }
+                                }
+                                Box(
+                                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                                        .background(if (!isLightTheme) Color(0xFF064E3B).copy(alpha = 0.2f) else Color(0xFFD1FAE5).copy(alpha = 0.4f))
+                                        .border(0.5.dp, Color(0xFF34D399).copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(modifier = Modifier.size(24.dp).clip(CircleShape).background(Color(0xFF34D399).copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF34D399), modifier = Modifier.size(14.dp))
+                                        }
+                                        Spacer(Modifier.width(6.dp))
+                                        Column {
+                                            Text("ALIVE", fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color(0xFF34D399).copy(alpha = 0.7f), letterSpacing = 1.sp)
+                                            Text(String.format("%5d", aliveCount),
+                                                fontFamily = FontFamily.Monospace, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF34D399))
+                                        }
+                                    }
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                                        .background(if (!isLightTheme) Color(0xFF7F1D1D).copy(alpha = 0.15f) else Color(0xFFFEE2E2).copy(alpha = 0.4f))
+                                        .border(0.5.dp, Color(0xFFEF4444).copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(modifier = Modifier.size(24.dp).clip(CircleShape).background(Color(0xFFEF4444).copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.Dangerous, null, tint = Color(0xFFEF4444).copy(alpha = 0.8f), modifier = Modifier.size(14.dp))
+                                        }
+                                        Spacer(Modifier.width(6.dp))
+                                        Column {
+                                            Text("DEAD", fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color(0xFFEF4444).copy(alpha = 0.7f), letterSpacing = 1.sp)
+                                            Text(String.format("%5d", deadCount),
+                                                fontFamily = FontFamily.Monospace, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEF4444))
+                                        }
+                                    }
+                                }
+                                Box(
+                                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                                        .background(if (!isLightTheme) Color(0xFF78350F).copy(alpha = 0.15f) else Color(0xFFFEF3C7).copy(alpha = 0.4f))
+                                        .border(0.5.dp, Color(0xFFFBBF24).copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(modifier = Modifier.size(24.dp).clip(CircleShape).background(Color(0xFFFBBF24).copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.HourglassEmpty, null, tint = Color(0xFFFBBF24).copy(alpha = 0.8f), modifier = Modifier.size(14.dp))
+                                        }
+                                        Spacer(Modifier.width(6.dp))
+                                        Column {
+                                            Text("ETA", fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color(0xFFFBBF24).copy(alpha = 0.7f), letterSpacing = 1.sp)
+                                            Text(String.format("%5s", eta),
+                                                fontFamily = FontFamily.Monospace, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFBBF24))
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Live Probe Feed (scrolling IP results)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(60.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (!isLightTheme) Color(0xFF0A0E1A).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.3f))
+                                    .border(0.5.dp, Color(0xFF00FF66).copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Column {
+                                    Text("PROBE FEED", fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color(0xFF00FF66).copy(alpha = 0.4f), letterSpacing = 1.sp)
+                                    Box(Modifier.fillMaxWidth().weight(1f)) {
+                                        val displayList = recentProbes.take(8)
+                                        if (displayList.isEmpty()) {
+                                            Text("awaiting scan...", fontFamily = FontFamily.Monospace, fontSize = 8.sp, color = Color(0xFF00FF66).copy(alpha = 0.2f))
+                                        } else {
+                                            LazyColumn(
+                                                modifier = Modifier.fillMaxSize(),
+                                                verticalArrangement = Arrangement.spacedBy(0.dp)
+                                            ) {
+                                                items(displayList, key = { it.hashCode() }) { entry ->
+                                                    Text(entry, fontFamily = FontFamily.Monospace, fontSize = 8.sp, color = Color(0xFF00FF66).copy(alpha = 0.7f), maxLines = 1)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Live Clean IPs found (recently verified)
+                            if (allIps.isNotEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (!isLightTheme) Color(0xFF064E3B).copy(alpha = 0.25f) else Color(0xFFD1FAE5).copy(alpha = 0.3f))
+                                        .border(0.5.dp, Color(0xFF34D399).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Column {
+                                        Text("CLEAN FOUND", fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color(0xFF34D399).copy(alpha = 0.6f), letterSpacing = 1.sp)
+                                        Spacer(Modifier.height(2.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            allIps.take(3).forEach { alive ->
+                                                Box(
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .clip(RoundedCornerShape(4.dp))
+                                                        .background(Color(0xFF34D399).copy(alpha = 0.1f))
+                                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text(
+                                                        "${alive.ip}:${alive.port} ${alive.ping}ms",
+                                                        fontFamily = FontFamily.Monospace, fontSize = 7.sp,
+                                                        color = Color(0xFF34D399).copy(alpha = 0.9f),
+                                                        maxLines = 1
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                             // Scan status HUD line (subnet only — counts in stat boxes below)
                             Box(
