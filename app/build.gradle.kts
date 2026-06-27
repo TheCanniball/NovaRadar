@@ -27,8 +27,11 @@ android {
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir.absolutePath}/nova-radar-key.jks"
-      storeFile = file(keystorePath)
+      // Robust path resolution for both Local and CI environments
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "nova-radar-key.jks"
+      val keystoreFile = if (file(keystorePath).isAbsolute) file(keystorePath) else file("${projectDir}/$keystorePath")
+      
+      storeFile = keystoreFile
       storePassword = "NovaRadar2026"
       keyAlias = "nova-radar"
       keyPassword = "NovaRadar2026"

@@ -153,20 +153,23 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun isInternetConnected(): Boolean {
-        val connectivityManager = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-        connectivityManager?.let { cm ->
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val activeNetwork = cm.activeNetwork ?: return false
-                val actType = cm.getNetworkCapabilities(activeNetwork) ?: return false
-                return actType.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            } else {
-                @Suppress("DEPRECATION")
-                val activeNetworkInfo = cm.activeNetworkInfo
-                @Suppress("DEPRECATION")
-                return activeNetworkInfo != null && activeNetworkInfo.isConnected
-            }
+        return try {
+            val connectivityManager = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            connectivityManager?.let { cm ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val activeNetwork = cm.activeNetwork ?: return false
+                    val actType = cm.getNetworkCapabilities(activeNetwork) ?: return false
+                    actType.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                } else {
+                    @Suppress("DEPRECATION")
+                    val activeNetworkInfo = cm.activeNetworkInfo
+                    @Suppress("DEPRECATION")
+                    activeNetworkInfo != null && activeNetworkInfo.isConnected
+                }
+            } ?: false
+        } catch (e: Exception) {
+            false
         }
-        return false
     }
 
     fun exportResultsToTxtFile(context: Context) {
@@ -366,7 +369,7 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
             var progress = 0
 
             // --- PHASE 1: QUICK SCAN (TCP CONNECT) ---
-            val quickConcurrency = 100
+            val quickConcurrency = 64 // Reduced from 100 to prevent OOM/Crashes on low-end devices
             val quickChunks = allTargets.chunked(quickConcurrency)
 
             for (chunk in quickChunks) {
@@ -506,16 +509,18 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun testSocketConnection(ip: String, port: Int, timeout: Int): Long {
         val startTime = System.currentTimeMillis()
+        var socket: Socket? = null
         return try {
-            val socket = Socket()
+            socket = Socket()
             socket.connect(InetSocketAddress(ip, port), timeout)
-            socket.close()
             val elapsed = System.currentTimeMillis() - startTime
             addProbe(ip, port, "${elapsed}ms")
             elapsed
         } catch (e: Exception) {
             addProbe(ip, port, "✖")
             -1L
+        } finally {
+            try { socket?.close() } catch (e: Exception) { /* ignore */ }
         }
     }
 
@@ -526,17 +531,23 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
             if (port in tlsPorts) {
                 val sslContext = SSLContext.getDefault()
                 val sslSocket = sslContext.socketFactory.createSocket() as SSLSocket
-                sslSocket.connect(InetSocketAddress(ip, port), timeout)
-                sslSocket.soTimeout = timeout
-                sslSocket.startHandshake()
-                sslSocket.close()
+                try {
+                    sslSocket.connect(InetSocketAddress(ip, port), timeout)
+                    sslSocket.soTimeout = timeout
+                    sslSocket.startHandshake()
+                } finally {
+                    try { sslSocket.close() } catch (e: Exception) { }
+                }
             } else {
                 val socket = Socket()
-                socket.connect(InetSocketAddress(ip, port), timeout)
-                socket.soTimeout = timeout
-                val buf = ByteArray(1)
-                socket.getInputStream().read(buf)
-                socket.close()
+                try {
+                    socket.connect(InetSocketAddress(ip, port), timeout)
+                    socket.soTimeout = timeout
+                    val buf = ByteArray(1)
+                    socket.getInputStream().read(buf)
+                } finally {
+                    try { socket.close() } catch (e: Exception) { }
+                }
             }
             val elapsed = System.currentTimeMillis() - startTime
             addProbe(ip, port, "✓${elapsed}ms")
