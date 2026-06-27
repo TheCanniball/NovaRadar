@@ -187,7 +187,7 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
                 .padding(bottom = 88.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(96.dp))
+            Spacer(modifier = Modifier.height(48.dp))
 
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 Column(
@@ -331,27 +331,27 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
                                 Canvas(modifier = Modifier.fillMaxSize()) {
                                     val radius = size.minDimension / 2f
                                     val center = Offset(size.width / 2f, size.height / 2f)
+                                    val outerRing = radius * 0.65f
                                     drawCircle(color = Color(0xFF00FF66).copy(alpha = 0.35f), radius = radius * 0.35f, style = Stroke(width = 1.5f))
-                                    drawCircle(color = Color(0xFF00FF66).copy(alpha = 0.35f), radius = radius * 0.65f, style = Stroke(width = 1.5f))
-                                    drawCircle(color = Color(0xFF00FF66).copy(alpha = 0.5f), radius = radius * 0.95f, style = Stroke(width = 2.0f))
-                                    drawLine(color = Color(0xFF00FF66).copy(alpha = 0.25f), start = Offset(center.x - radius, center.y), end = Offset(center.x + radius, center.y), strokeWidth = 1.5f)
-                                    drawLine(color = Color(0xFF00FF66).copy(alpha = 0.25f), start = Offset(center.x, center.y - radius), end = Offset(center.x, center.y + radius), strokeWidth = 1.5f)
+                                    drawCircle(color = Color(0xFF00FF66).copy(alpha = 0.55f), radius = outerRing, style = Stroke(width = 2.5f))
+                                    drawLine(color = Color(0xFF00FF66).copy(alpha = 0.25f), start = Offset(center.x - outerRing, center.y), end = Offset(center.x + outerRing, center.y), strokeWidth = 1.5f)
+                                    drawLine(color = Color(0xFF00FF66).copy(alpha = 0.25f), start = Offset(center.x, center.y - outerRing), end = Offset(center.x, center.y + outerRing), strokeWidth = 1.5f)
                                     val sweepAlphaMultiplier = if (isScanning) 1.0f else 0.20f
                                     val angleRad = Math.toRadians(animatedAngle.toDouble())
-                                    val endX = center.x + radius * cos(angleRad).toFloat()
-                                    val endY = center.y + radius * sin(angleRad).toFloat()
+                                    val endX = center.x + outerRing * cos(angleRad).toFloat()
+                                    val endY = center.y + outerRing * sin(angleRad).toFloat()
                                     drawLine(color = Color(0xFF00FF66).copy(alpha = 0.85f * sweepAlphaMultiplier), start = center, end = Offset(endX, endY), strokeWidth = 3f)
                                     drawIntoCanvas { canvas ->
                                         canvas.save()
                                         canvas.rotate(animatedAngle, center.x, center.y)
-                                        drawCircle(brush = sweepBrush, radius = radius * 0.95f, alpha = sweepAlphaMultiplier)
+                                        drawCircle(brush = sweepBrush, radius = outerRing, alpha = sweepAlphaMultiplier)
                                         canvas.restore()
                                     }
                                     drawCircle(color = Color(0xFF00FF66), radius = 5.dp.toPx())
                                     drawCircle(color = Color.Transparent, radius = 10.dp.toPx(), style = Stroke(width = 1.5f.dp.toPx()))
                                     allIps.take(8).forEachIndexed { index, alive ->
                                         val dotAngleRad = Math.toRadians(alive.angle.toDouble())
-                                        val distPx = alive.normalizedDistance * radius * 0.85f
+                                        val distPx = alive.normalizedDistance * outerRing * 0.92f
                                         val dotX = center.x + distPx * cos(dotAngleRad).toFloat()
                                         val dotY = center.y + distPx * sin(dotAngleRad).toFloat()
                                         val dotColor = when { alive.ping < 200 -> Color(0xFF34D399); alive.ping < 500 -> Color(0xFFFBBF24); alive.ping < 1000 -> Color(0xFFf87171); else -> Color(0xFF000000) }
