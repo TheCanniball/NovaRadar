@@ -19,7 +19,7 @@ android {
     applicationId = "com.novaradar.app"
     minSdk = 24
     targetSdk = 35
-    versionCode = 3
+    versionCode = 4
     versionName = appVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

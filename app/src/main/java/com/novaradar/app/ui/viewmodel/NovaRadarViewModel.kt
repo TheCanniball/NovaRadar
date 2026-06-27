@@ -50,8 +50,6 @@ data class AliveIp(
     var normalizedDistance: Float = 0.3f
 )
 
-private val vlessUUID = "b9c40223-bbc5-4311-89d3-f1ed54bbca86"
-private val vlessSNI = "nova2.altramax083.workers.dev"
 private val tlsPorts = setOf(443, 2053, 2083, 2087, 2096, 8443)
 
 private fun generateNovaId(): String {
