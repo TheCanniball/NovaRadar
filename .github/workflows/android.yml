@@ -22,7 +22,6 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ایجاد یک Keystore موقت برای اینکه بیلد در محیط گیت‌هاب شکست نخورد
       - name: Create Temporary Keystore
         run: |
           keytool -genkey -v -keystore nova-radar-key.jks -alias nova-radar -keyalg RSA -keysize 2048 -validity 10000 -storepass NovaRadar2026 -keypass NovaRadar2026 -dname "CN=NovaRadar, OU=Dev, O=Nova, L=World, S=World, C=US"
@@ -30,8 +29,8 @@ jobs:
       - name: Build Release APK & Bundle
         run: ./gradlew assembleRelease bundleRelease
         env:
-          KEYSTORE_PATH: ../nova-radar-key.jks
-          # این مسیر به روت پروژه اشاره می‌کند چون دستور در پوشه app اجرا می‌شود
+          KEYSTORE_PATH: ./nova-radar-key.jks
+          # مسیر تصحیح شد: فایل در ریشه پروژه قرار دارد.
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
