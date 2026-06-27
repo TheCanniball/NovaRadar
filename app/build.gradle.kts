@@ -1,7 +1,7 @@
 import java.net.URL
 import java.net.HttpURLConnection
 
-val appVersionName = "1.0.0"
+val appVersionName = "1.5.0"
 
 plugins {
   alias(libs.plugins.android.application)
@@ -27,11 +27,8 @@ android {
 
   signingConfigs {
     create("release") {
-      // Robust path resolution for both Local and CI environments
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "nova-radar-key.jks"
-      val keystoreFile = if (file(keystorePath).isAbsolute) file(keystorePath) else file("${projectDir}/$keystorePath")
-      
-      storeFile = keystoreFile
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/nova-radar-key.jks"
+      storeFile = file(keystorePath)
       storePassword = "NovaRadar2026"
       keyAlias = "nova-radar"
       keyPassword = "NovaRadar2026"
