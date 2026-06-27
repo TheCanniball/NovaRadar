@@ -303,23 +303,17 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
             ) { page ->
                 when (page) {
                     0 -> {
-                        // DASHBOARD SUB-PAGE (IP input, radar, stat boxes, unique start/stop button)
-                        val dashboardScrollState = rememberScrollState()
                         Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(dashboardScrollState)
-                                .padding(bottom = 120.dp), // Extra space to scroll past the bottom bar
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            // Radar (Perfect Circle with adaptive size)
-                            BoxWithConstraints(
+                            // Radar (fills remaining space)
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 4.dp)
-                                    .aspectRatio(1f)
+                                    .weight(1f)
                                     .clip(CircleShape)
-                                    .background(if (theme == AppTheme.PRISM_LIGHT) Color(0xFFF0FDF4) else Color(0xFF021708)) 
+                                    .background(if (theme == AppTheme.PRISM_LIGHT) Color(0xFFF0FDF4) else Color(0xFF021708))
                                     .border(2.dp, Color(0xFF34D399).copy(alpha = if (theme == AppTheme.PRISM_LIGHT) 0.6f else 0.8f), CircleShape)
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
@@ -333,36 +327,27 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
                                     .testTag("radar_canvas_container"),
                                 contentAlignment = Alignment.Center
                             ) {
-                                val canvasSize = minOf(maxWidth, maxHeight)
-                                Canvas(modifier = Modifier.size(canvasSize)) {
+                                Canvas(modifier = Modifier.fillMaxSize()) {
                                     val radius = size.minDimension / 2f
                                     val center = Offset(size.width / 2f, size.height / 2f)
-                                    
-                                    // Static Circles (Inside the border)
-                                    drawCircle(color = Color(0xFF00FF66).copy(alpha = 0.25f), radius = radius * 0.35f, style = Stroke(width = 1.2f))
-                                    drawCircle(color = Color(0xFF00FF66).copy(alpha = 0.25f), radius = radius * 0.65f, style = Stroke(width = 1.2f))
-                                    drawCircle(color = Color(0xFF00FF66).copy(alpha = 0.4f), radius = radius * 0.94f, style = Stroke(width = 1.8f))
-                                    
-                                    // Crosshair lines
-                                    drawLine(color = Color(0xFF00FF66).copy(alpha = 0.2f), start = Offset(center.x - radius * 0.94f, center.y), end = Offset(center.x + radius * 0.94f, center.y), strokeWidth = 1f)
-                                    drawLine(color = Color(0xFF00FF66).copy(alpha = 0.2f), start = Offset(center.x, center.y - radius * 0.94f), end = Offset(center.x, center.y + radius * 0.94f), strokeWidth = 1f)
-                                    
-                                    val sweepAlphaMultiplier = if (isScanning) 1.0f else 0.15f
-                                    
+                                    drawCircle(color = Color(0xFF00FF66).copy(alpha = 0.35f), radius = radius * 0.35f, style = Stroke(width = 1.5f))
+                                    drawCircle(color = Color(0xFF00FF66).copy(alpha = 0.35f), radius = radius * 0.65f, style = Stroke(width = 1.5f))
+                                    drawCircle(color = Color(0xFF00FF66).copy(alpha = 0.5f), radius = radius * 0.95f, style = Stroke(width = 2.0f))
+                                    drawLine(color = Color(0xFF00FF66).copy(alpha = 0.25f), start = Offset(center.x - radius, center.y), end = Offset(center.x + radius, center.y), strokeWidth = 1.5f)
+                                    drawLine(color = Color(0xFF00FF66).copy(alpha = 0.25f), start = Offset(center.x, center.y - radius), end = Offset(center.x, center.y + radius), strokeWidth = 1.5f)
+                                    val sweepAlphaMultiplier = if (isScanning) 1.0f else 0.20f
                                     val angleRad = Math.toRadians(animatedAngle.toDouble())
-                                    val endX = center.x + radius * 0.94f * cos(angleRad).toFloat()
-                                    val endY = center.y + radius * 0.94f * sin(angleRad).toFloat()
-                                    drawLine(color = Color(0xFF00FF66).copy(alpha = 0.9f * sweepAlphaMultiplier), start = center, end = Offset(endX, endY), strokeWidth = 2.5f)
-                                    
+                                    val endX = center.x + radius * cos(angleRad).toFloat()
+                                    val endY = center.y + radius * sin(angleRad).toFloat()
+                                    drawLine(color = Color(0xFF00FF66).copy(alpha = 0.85f * sweepAlphaMultiplier), start = center, end = Offset(endX, endY), strokeWidth = 3f)
                                     drawIntoCanvas { canvas ->
                                         canvas.save()
                                         canvas.rotate(animatedAngle, center.x, center.y)
-                                        drawCircle(brush = sweepBrush, radius = radius * 0.94f, alpha = sweepAlphaMultiplier)
+                                        drawCircle(brush = sweepBrush, radius = radius * 0.95f, alpha = sweepAlphaMultiplier)
                                         canvas.restore()
                                     }
-                                    
-                                    drawCircle(color = Color(0xFF00FF66), radius = 4.dp.toPx())
-                                    
+                                    drawCircle(color = Color(0xFF00FF66), radius = 5.dp.toPx())
+                                    drawCircle(color = Color.Transparent, radius = 10.dp.toPx(), style = Stroke(width = 1.5f.dp.toPx()))
                                     allIps.take(8).forEachIndexed { index, alive ->
                                         val dotAngleRad = Math.toRadians(alive.angle.toDouble())
                                         val distPx = alive.normalizedDistance * radius * 0.85f
@@ -370,9 +355,9 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
                                         val dotY = center.y + distPx * sin(dotAngleRad).toFloat()
                                         val dotColor = when { alive.ping < 200 -> Color(0xFF34D399); alive.ping < 500 -> Color(0xFFFBBF24); alive.ping < 1000 -> Color(0xFFf87171); else -> Color(0xFF000000) }
                                         val angleDiff = (animatedAngle - alive.angle + 360f) % 360f
-                                        val persistenceAlpha = if (isScanning) maxOf(0.1f, 1f - (angleDiff / 270f)) else 0.15f
-                                        drawCircle(color = dotColor.copy(alpha = 0.3f * persistenceAlpha), radius = 5.dp.toPx(), center = Offset(dotX, dotY))
-                                        drawCircle(color = dotColor.copy(alpha = persistenceAlpha), radius = 2.5.dp.toPx(), center = Offset(dotX, dotY))
+                                        val persistenceAlpha = if (isScanning) maxOf(0.15f, 1f - (angleDiff / 240f)) else 0.20f
+                                        drawCircle(color = dotColor.copy(alpha = 0.35f * persistenceAlpha), radius = 6.dp.toPx(), center = Offset(dotX, dotY))
+                                        drawCircle(color = dotColor.copy(alpha = persistenceAlpha), radius = 3.dp.toPx(), center = Offset(dotX, dotY))
                                     }
                                 }
                             }
