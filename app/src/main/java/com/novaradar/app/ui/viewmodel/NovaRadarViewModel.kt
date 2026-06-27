@@ -30,7 +30,6 @@ import java.net.Socket
 import javax.net.ssl.SNIHostName
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
-import kotlin.math.minOf
 import kotlin.random.Random
 
 enum class AppTheme {
@@ -672,7 +671,7 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
                 val ipLong = ipToLong(baseIp)
                 val hostCount = (1L shl (32 - mask))
                 if (hostCount <= budget + 2) {
-                    val limit = minOf(hostCount.toInt() - 1, budget + 1)
+                    val limit = (hostCount.toInt() - 1).coerceAtMost(budget + 1)
                     for (i in 1 until limit) {
                         ipList.add(longToIp(ipLong + i))
                     }
