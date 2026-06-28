@@ -39,6 +39,8 @@ fun SettingsScreen(viewModel: NovaRadarViewModel) {
     val vibrateError by viewModel.vibrateOnError.collectAsState()
     val notifyError by viewModel.notifyOnError.collectAsState()
 
+    var speedLimit by remember { mutableFloatStateOf(10f) }
+
     Box(Modifier.fillMaxSize().padding(horizontal = 14.dp).padding(bottom = 88.dp)) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             WidgetCard(isLightTheme = isLight) {
@@ -84,41 +86,59 @@ fun SettingsScreen(viewModel: NovaRadarViewModel) {
                 }
             }
 
-            Text("Ports", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Wc.primary, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(Wc.primary.copy(alpha = 0.1f)).clickable { viewModel.selectAllPorts() }.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                    Text("Select All", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Wc.primary)
+            WidgetCard(isLightTheme = isLight) {
+                Text("Target Ports", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Wc.primary)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(Wc.primary.copy(alpha = 0.1f)).clickable { viewModel.selectAllPorts() }.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                        Text(Localization.get("select_all", lang), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Wc.primary)
+                    }
+                    Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(Wc.error.copy(alpha = 0.1f)).clickable { viewModel.clearAllPorts() }.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                        Text(Localization.get("clear_all", lang), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Wc.error)
+                    }
                 }
-                Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(Wc.error.copy(alpha = 0.1f)).clickable { viewModel.clearAllPorts() }.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-                    Text("Clear All", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Wc.error)
-                }
-            }
-            ports.chunked(3).forEach { row ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    row.forEach { pc ->
-                        Box(Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
-                            .background(if (pc.isEnabled) Wc.primary else if (isLight) Color(0xFFE2E8F0) else Wc.surfaceContainerDark)
-                            .border(0.5.dp, if (pc.isEnabled) Wc.primary.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
-                            .clickable { viewModel.togglePortConfig(pc) }
-                            .padding(vertical = 10.dp),
-                            contentAlignment = Alignment.Center) {
-                            Text("${pc.port}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (pc.isEnabled) Color.White else if (isLight) Color(0xFF334155) else Color.Gray)
+                Spacer(Modifier.height(4.dp))
+                ports.chunked(3).forEach { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        row.forEach { pc ->
+                            Box(Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                                .background(if (pc.isEnabled) Wc.primary else if (isLight) Color(0xFFE2E8F0) else Wc.surfaceContainerDark)
+                                .border(0.5.dp, if (pc.isEnabled) Wc.primary.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                                .clickable { viewModel.togglePortConfig(pc) }
+                                .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center) {
+                                Text("${pc.port}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (pc.isEnabled) Color.White else if (isLight) Color(0xFF334155) else Color.Gray)
+                            }
                         }
                     }
                 }
             }
 
-            Text("IP Sources", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Wc.primary, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
-            sources.forEach { src ->
-                Card(Modifier.fillMaxWidth().clickable { viewModel.toggleIpSource(src) }, shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = if (isLight) Color.White.copy(alpha = 0.6f) else Wc.surfaceContainerDark.copy(alpha = 0.7f)), border = BorderStroke(0.5.dp, if (src.isEnabled) Wc.primary.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.1f))) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = src.isEnabled, onCheckedChange = { viewModel.toggleIpSource(src) })
-                        Spacer(Modifier.width(8.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(if (lang == AppLanguage.FA) src.nameFa else src.nameEn, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (src.isEnabled) (if (isLight) Color(0xFF1A202C) else Wc.onSurfaceDark) else Color.Gray)
-                            if (src.cidr.isNotEmpty()) Text(src.cidr, fontSize = 10.sp, color = Color.Gray)
+            WidgetCard(isLightTheme = isLight) {
+                Text("Speed Limit", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Wc.primary)
+                Spacer(Modifier.height(4.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Max display speed:", fontSize = 11.sp, color = if (isLight) Color(0xFF4A5568) else Wc.onSurfaceVariantDark)
+                    Text("%.0f MB/s".format(speedLimit), fontSize = 11.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Wc.primary)
+                }
+                Slider(
+                    value = speedLimit, onValueChange = { speedLimit = it },
+                    valueRange = 1f..20f, steps = 18,
+                    colors = SliderDefaults.colors(thumbColor = Wc.primary, activeTrackColor = Wc.primary)
+                )
+            }
+
+            WidgetCard(isLightTheme = isLight) {
+                Text("IP Sources", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Wc.primary)
+                Spacer(Modifier.height(4.dp))
+                sources.forEach { src ->
+                    Card(Modifier.fillMaxWidth().clickable { viewModel.toggleIpSource(src) }.padding(vertical = 2.dp), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = if (isLight) Color.White.copy(alpha = 0.6f) else Wc.surfaceContainerDark.copy(alpha = 0.7f)), border = BorderStroke(0.5.dp, if (src.isEnabled) Wc.primary.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.1f))) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Switch(checked = src.isEnabled, onCheckedChange = { viewModel.toggleIpSource(src) })
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (lang == AppLanguage.FA) src.nameFa else src.nameEn, Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (isLight) Color(0xFF1A202C) else Wc.onSurfaceDark)
+                            Icon(Icons.Default.Language, null, tint = if (src.isEnabled) Wc.primary else Color.Gray.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
                         }
-                        Icon(Icons.Default.Language, null, tint = if (src.isEnabled) Wc.primary else Color.Gray.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
                     }
                 }
             }
