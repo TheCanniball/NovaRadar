@@ -133,8 +133,10 @@ fun GlassyCard(
 }
 
 // Page 1: RADAR SCANNER SCREEN (With Integrated Sub-Pager for Scanner and Results tabs)
+// NOTE: The active RadarScreen is now in RadarScreen.kt (v1.1.0 redesign)
+// This is kept as legacy reference only and will not be exported
 @Composable
-fun RadarScreen(viewModel: NovaRadarViewModel) {
+private fun RadarScreenLegacy(viewModel: NovaRadarViewModel) {
     val context = LocalContext.current
     val lang by viewModel.selectedLanguage.collectAsState()
     val theme by viewModel.selectedTheme.collectAsState()
