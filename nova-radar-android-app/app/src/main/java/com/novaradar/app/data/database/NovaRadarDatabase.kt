@@ -103,10 +103,19 @@ abstract class NovaRadarDatabase : RoomDatabase() {
                 "216.230.84.0/24", "216.230.86.0/24"
             )
 
+            val mciCidrs = listOf("104.16.24.0/14", "172.67.10.0/15", "162.159.36.0/16")
+            val mtnCidrs = listOf("108.162.192.0/18", "104.18.45.0/14", "172.64.50.0/14")
+            val ictCidrs = listOf("104.16.0.0/12", "162.159.0.0/16")
+            val allCidrs = listOf("172.64.0.0/13", "104.16.0.0/12", "162.159.0.0/16", "108.162.192.0/18")
+
             val defaultSources = listOf(
                 IpSource(1, "Cloudflare", "کلودفلر", cloudflareCidrs.joinToString(","), "", "cidr", true),
                 IpSource(2, "Akamai", "آکامای", akamaiCidrs.joinToString(","), "", "cidr", false),
-                IpSource(3, "Vercel", "ورسل", vercelCidrs.joinToString(","), "", "cidr", false)
+                IpSource(3, "Vercel", "ورسل", vercelCidrs.joinToString(","), "", "cidr", false),
+                IpSource(4, "MCI", "همراه اول", mciCidrs.joinToString(","), "", "cidr", false),
+                IpSource(5, "MTN", "ایرانسل", mtnCidrs.joinToString(","), "", "cidr", false),
+                IpSource(6, "ICT", "مخابرات", ictCidrs.joinToString(","), "", "cidr", false),
+                IpSource(7, "CF-All", "کلودفلر همه", allCidrs.joinToString(","), "", "cidr", false)
             )
             val ipSourceDao = db.ipSourceDao()
             defaultSources.forEach { ipSourceDao.insertIpSource(it) }
