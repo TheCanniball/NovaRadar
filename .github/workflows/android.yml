@@ -18,10 +18,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: set up JDK 17
+      - name: set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
           cache: gradle
 
@@ -36,8 +36,8 @@ jobs:
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
-            -storepass NovaRadar2026 \
-            -keypass NovaRadar2026 \
+            -storepass 123456 \
+            -keypass 123456 \
             -dname "CN=NovaRadar, OU=Dev, O=Nova, L=World, S=World, C=US" \
             -storetype JKS
 
