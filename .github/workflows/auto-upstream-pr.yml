@@ -1,0 +1,69 @@
+name: Auto PR to Upstream on Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-upstream-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Setup git config
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create/update upstream-pr branch with latest main
+        run: |
+          git branch -f upstream-pr main
+          git push origin upstream-pr --force
+
+      - name: Open or update PR to IRNova/NovaRadar
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+        run: |
+          PR_EXISTS=$(gh pr view 7 --repo IRNova/NovaRadar --json number 2>/dev/null || echo "")
+          if [ -z "$PR_EXISTS" ]; then
+            gh pr create \
+              --repo IRNova/NovaRadar \
+              --head mohammadmehrani:NovaRadar:upstream-pr \
+              --base main \
+              --title "Nova Radar Android v${RELEASE_TAG#v}" \
+              --body "## Nova Radar Android App — v${RELEASE_TAG#v}
+
+              Android port (Kotlin/Jetpack Compose) of IRNova/NovaRadar.
+
+              ### 📥 Download APKs
+              [Download v${RELEASE_TAG#v}](${RELEASE_URL})
+
+              ### Features
+              - Two-phase scan engine (TCP + TLS with custom SNI)
+              - HTTP ping verification
+              - 13 scan ports, 7 IP source groups
+              - Professional results page
+              - Dark/Light theme, Persian/English
+              - Config Builder (VLESS, Clash, V2Ray, Sing-Box)
+
+              ### Source
+              Full source available at: https://github.com/mohammadmehrani/NovaRadar
+              " && \
+            gh pr merge 7 --repo IRNova/NovaRadar --squash --auto 2>/dev/null || true
+          else
+            gh pr edit 7 --repo IRNova/NovaRadar \
+              --title "Nova Radar Android v${RELEASE_TAG#v}" \
+              --body "Updated to v${RELEASE_TAG#v}
+
+              📥 [Download v${RELEASE_TAG#v}](${RELEASE_URL})" && \
+            gh pr ready 7 --repo IRNova/NovaRadar 2>/dev/null || true
+          fi
