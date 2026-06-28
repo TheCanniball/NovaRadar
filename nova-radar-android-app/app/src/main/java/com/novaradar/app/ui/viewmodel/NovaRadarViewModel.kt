@@ -30,6 +30,8 @@ import java.net.Socket
 import javax.net.ssl.SNIHostName
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
+import java.net.HttpURLConnection
+import java.net.URL
 import kotlin.random.Random
 
 enum class AppTheme {
@@ -46,6 +48,7 @@ data class AliveIp(
     val ip: String,
     val port: Int,
     val ping: Long,
+    val httpPing: Long = -1,
     val novaId: String = generateNovaId(),
     var angle: Float = Random.nextFloat() * 360f,
     var normalizedDistance: Float = 0.3f
@@ -435,6 +438,33 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
         Toast.makeText(context, if (_selectedLanguage.value == AppLanguage.FA) "خروجی کپی شد!" else "Output copied!", Toast.LENGTH_SHORT).show()
     }
 
+    // HTML scanner operator sources
+    private val operatorRanges = mapOf(
+        "all" to listOf("172.64.0.0/13", "104.16.0.0/12", "162.159.0.0/16", "108.162.192.0/18"),
+        "mci" to listOf("104.16.24.0/14", "172.67.10.0/15", "162.159.36.0/16"),
+        "mtn" to listOf("108.162.192.0/18", "104.18.45.0/14", "172.64.50.0/14"),
+        "ict" to listOf("104.16.0.0/12", "162.159.0.0/16")
+    )
+
+    fun generateOperatorIps(operator: String, count: Int): String {
+        val cidrs = operatorRanges[operator] ?: return ""
+        val ips = mutableListOf<String>()
+        val random = java.util.Random()
+        repeat(count) {
+            val cidr = cidrs[random.nextInt(cidrs.size)]
+            val parts = cidr.split("/")
+            val ipParts = parts[0].split(".").map { it.toInt() }
+            val prefix = parts[1].toInt()
+            val a = ipParts[0]
+            val b = ipParts[1] + random.nextInt(1 shl (8 - (prefix - 8).coerceIn(0, 8)))
+            val c = ipParts[2] + random.nextInt(1 shl (8 - (prefix - 16).coerceIn(0, 8)))
+            val d = random.nextInt(253) + 2
+            val genIp = "$a.$b.$c.$d:443"
+            if (!ips.contains(genIp)) ips.add(genIp)
+        }
+        return ips.joinToString("\n")
+    }
+
     private var scanJob: Job? = null
 
     init {
@@ -648,7 +678,9 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
 
                         // Pass if >= 2 succeed (matching Go: success >= 2)
                         if (successCount >= 2) {
-                            AliveIp(ip = ip, port = port, ping = bestLatency)
+                            val httpPing = testHttpPing(ip, port)
+                            _currentScanningSubnet.value = "HTTP PING: $ip:$port - ${if (httpPing > 0) "${httpPing}ms" else "✗"}"
+                            AliveIp(ip = ip, port = port, ping = bestLatency, httpPing = httpPing)
                         } else {
                             null
                         }
@@ -907,6 +939,24 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
             elapsed
         } catch (e: Exception) {
             addProbe(ip, port, "✗")
+            -1L
+        }
+    }
+
+    private fun testHttpPing(ip: String, port: Int): Long {
+        val startTime = System.currentTimeMillis()
+        return try {
+            val url = URL("http://$ip:$port/__ping?t=${System.nanoTime()}")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 800
+            conn.readTimeout = 800
+            conn.instanceFollowRedirects = false
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0")
+            val responseCode = conn.responseCode
+            conn.disconnect()
+            val elapsed = System.currentTimeMillis() - startTime
+            if (responseCode in 200..499 && elapsed < 900) elapsed else -1L
+        } catch (e: Exception) {
             -1L
         }
     }

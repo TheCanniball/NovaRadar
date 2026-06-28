@@ -17,6 +17,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,6 +65,8 @@ import kotlin.math.sin
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 
+private val tlsPorts = setOf(443, 2053, 2083, 2087, 2096, 8443)
+
 @Composable
 fun FadingScrollColumn(
     modifier: Modifier = Modifier,
@@ -82,9 +85,9 @@ fun FadingScrollColumn(
         horizontalAlignment = horizontalAlignment,
         verticalArrangement = verticalArrangement
     ) {
-        Spacer(modifier = Modifier.height(100.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         content()
-        Spacer(modifier = Modifier.height(100.dp))
+        Spacer(modifier = Modifier.height(88.dp))
     }
 }
 
@@ -193,8 +196,6 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
                 .padding(bottom = 88.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(48.dp))
-
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 Column(
                     modifier = Modifier.weight(1f),
@@ -314,11 +315,11 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            // Radar (fills remaining space)
+                            // Radar (perfect circle)
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .weight(1f)
+                                    .aspectRatio(1f)
                                     .clip(CircleShape)
                                     .background(if (theme == AppTheme.PRISM_LIGHT) Color(0xFFF0FDF4) else Color(0xFF021708))
                                     .border(2.dp, Color(0xFF34D399).copy(alpha = if (theme == AppTheme.PRISM_LIGHT) 0.6f else 0.8f), CircleShape)
@@ -551,100 +552,172 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
                         }
                     }
 
-                    1 -> {
-                        // RESULTS + TERMINAL COMBINED SUB-PAGE
-                        Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            // Toolbar: label + action buttons
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(Color(0xFF00FF66).copy(alpha = 0.5f)))
-                                    Spacer(Modifier.width(5.dp))
-                                    Text("LIVE TERMINAL", fontFamily = FontFamily.Monospace, fontSize = 8.sp, color = Color(0xFF00FF66).copy(alpha = 0.6f), letterSpacing = 1.sp)
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    IconButton(onClick = { viewModel.copyTop10ToClipboard(context); Toast.makeText(context, Localization.get("copied_note", lang), Toast.LENGTH_SHORT).show() }, modifier = Modifier.size(24.dp)) {
-                                        Icon(Icons.Default.FormatListNumbered, "Copy Top 10", tint = Color(0xFF22D3EE), modifier = Modifier.size(14.dp))
+                     1 -> {
+                        // PROFESSIONAL RESULTS PAGE
+                        Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            // Header bar with stats and actions
+                            GlassyCard(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(Modifier.size(6.dp).clip(CircleShape).background(if (isScanning) Color(0xFFFBBF24) else if (allIps.isNotEmpty()) Color(0xFF34D399) else Color(0xFFEF4444).copy(alpha = 0.4f)))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            if (isScanning) "SCANNING..." else if (allIps.isNotEmpty()) "${allIps.size} TARGETS" else "NO TARGETS",
+                                            fontFamily = FontFamily.Monospace, fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                                            color = if (isScanning) Color(0xFFFBBF24) else if (allIps.isNotEmpty()) Color(0xFF34D399) else Color(0xFFEF4444).copy(alpha = 0.5f),
+                                            letterSpacing = 1.sp
+                                        )
+                                        if (allIps.isNotEmpty()) {
+                                            Spacer(Modifier.width(8.dp))
+                                            val avgPing = allIps.map { it.ping }.average().toLong()
+                                            Text("Ø${avgPing}ms", fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color(0xFF22D3EE).copy(alpha = 0.6f))
+                                        }
                                     }
-                                    IconButton(onClick = { viewModel.copyAllToClipboard(context) }, modifier = Modifier.size(24.dp)) {
-                                        Icon(Icons.Default.ContentCopy, "Copy All", tint = Color(0xFF22D3EE), modifier = Modifier.size(14.dp))
-                                    }
-                                    IconButton(onClick = { viewModel.exportResultsToTxtFile(context) }, modifier = Modifier.size(24.dp)) {
-                                        Icon(Icons.Default.Save, "Save to TXT", tint = Color(0xFF22D3EE), modifier = Modifier.size(14.dp))
-                                    }
-                                    IconButton(onClick = { showConfigBuilder = true }, modifier = Modifier.size(24.dp)) {
-                                        Icon(Icons.Default.Build, "Config Builder", tint = Color(0xFFFBBF24), modifier = Modifier.size(14.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        IconButton(onClick = { viewModel.copyTop10ToClipboard(context); Toast.makeText(context, Localization.get("copied_note", lang), Toast.LENGTH_SHORT).show() }, modifier = Modifier.size(22.dp)) {
+                                            Icon(Icons.Default.FormatListNumbered, "Top10", tint = Color(0xFF22D3EE), modifier = Modifier.size(12.dp))
+                                        }
+                                        IconButton(onClick = { viewModel.copyAllToClipboard(context) }, modifier = Modifier.size(22.dp)) {
+                                            Icon(Icons.Default.ContentCopy, "Copy", tint = Color(0xFF22D3EE), modifier = Modifier.size(12.dp))
+                                        }
+                                        IconButton(onClick = { viewModel.exportResultsToTxtFile(context) }, modifier = Modifier.size(22.dp)) {
+                                            Icon(Icons.Default.Save, "Save", tint = Color(0xFF22D3EE), modifier = Modifier.size(12.dp))
+                                        }
+                                        IconButton(onClick = { showConfigBuilder = true }, modifier = Modifier.size(22.dp)) {
+                                            Icon(Icons.Default.Build, "Config", tint = Color(0xFFFBBF24), modifier = Modifier.size(12.dp))
+                                        }
                                     }
                                 }
                             }
 
-                            // Export format buttons bar
+                            // Export format bar
                             if (allIps.isNotEmpty()) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    val btnMod = Modifier.height(24.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFF064E3B).copy(alpha = 0.3f)).border(0.5.dp, Color(0xFF34D399).copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp)
-                                    TextButton(onClick = { viewModel.exportClash(context) }, modifier = btnMod, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) { Text("Clash", fontSize = 8.sp, color = Color(0xFF34D399)) }
-                                    TextButton(onClick = { viewModel.exportV2Ray(context) }, modifier = btnMod, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) { Text("V2Ray", fontSize = 8.sp, color = Color(0xFF34D399)) }
-                                    TextButton(onClick = { viewModel.exportVLESS(context) }, modifier = btnMod, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) { Text("VLESS", fontSize = 8.sp, color = Color(0xFF34D399)) }
-                                    TextButton(onClick = { viewModel.exportSingBox(context) }, modifier = btnMod, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) { Text("Sing-Box", fontSize = 8.sp, color = Color(0xFF34D399)) }
+                                    listOf("Clash", "V2Ray", "VLESS", "Sing-Box").forEachIndexed { i, label ->
+                                        val exportActions = listOf({ viewModel.exportClash(context) }, { viewModel.exportV2Ray(context) }, { viewModel.exportVLESS(context) }, { viewModel.exportSingBox(context) })
+                                        Box(
+                                            modifier = Modifier.weight(1f).height(22.dp)
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(Color(0xFF064E3B).copy(alpha = 0.25f))
+                                                .border(0.5.dp, Color(0xFF34D399).copy(alpha = 0.25f), RoundedCornerShape(4.dp))
+                                                .clickable { exportActions[i]() },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(label, fontSize = 7.sp, color = Color(0xFF34D399), fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                                        }
+                                    }
                                 }
                             }
 
-                            // MFD-style terminal results (black/green)
-                            Box(
-                                modifier = Modifier.weight(1f).fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFF050A10))
-                                    .border(1.dp, Color(0xFF00FF66).copy(alpha = 0.2f), RoundedCornerShape(10.dp))
-                                    .padding(6.dp)
-                            ) {
-                                if (allIps.isEmpty()) {
-                                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            // Results table with column headers
+                            if (allIps.isEmpty()) {
+                                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(
-                                            text = if (isScanning) ">> AWAITING TARGET ACQUISITION <<" else ">> NO TARGETS <<",
-                                            fontFamily = FontFamily.Monospace, fontSize = 9.sp,
-                                            color = Color(0xFF00FF66).copy(alpha = 0.3f), letterSpacing = 1.sp
+                                            text = if (isScanning) "⏳ AWAITING TARGETS" else "📡 NO TARGETS ACQUIRED",
+                                            fontFamily = FontFamily.Monospace, fontSize = 11.sp,
+                                            color = (if (isScanning) Color(0xFFFBBF24) else Color(0xFFEF4444)).copy(alpha = 0.5f),
+                                            letterSpacing = 1.sp
+                                        )
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(
+                                            text = if (isScanning) "IPs will appear here as they are verified" else "Start a scan to find clean IPs",
+                                            fontFamily = FontFamily.Monospace, fontSize = 8.sp,
+                                            color = Color.Gray.copy(alpha = 0.5f)
                                         )
                                     }
-                                } else {
+                                }
+                            } else {
+                                Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                                    // Table header
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth()
+                                            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                                            .background(if (isLightTheme) Color(0xFFE2E8F0) else Color(0xFF0A0E1A).copy(alpha = 0.6f))
+                                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                                    ) {
+                                        Text("#", modifier = Modifier.width(18.dp), fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                        Text("IP:PORT", modifier = Modifier.weight(1f), fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                        Text("PING", modifier = Modifier.width(32.dp), fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                        Text("HTTP", modifier = Modifier.width(28.dp), fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                        Text("SPD", modifier = Modifier.width(28.dp), fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                                        Text("", modifier = Modifier.width(36.dp))
+                                    }
+
+                                    // Results rows
                                     LazyColumn(
                                         modifier = Modifier.fillMaxSize(),
-                                        verticalArrangement = Arrangement.spacedBy(1.dp)
+                                        verticalArrangement = Arrangement.spacedBy(0.dp)
                                     ) {
-                                        items(allIps, key = { it.hashCode() }) { alive ->
+                                        itemsIndexed(allIps, key = { _, ip -> "${ip.ip}:${ip.port}" }) { index, alive ->
                                             val speedKey = "${alive.ip}:${alive.port}"
                                             val speedStr = viewModel.speedResults.value[speedKey] ?: "--"
+                                            val isEven = index % 2 == 0
+                                            val rowBg = if (isEven) Color.Transparent else (if (isLightTheme) Color(0xFFF8FAFC) else Color.White.copy(alpha = 0.02f))
+                                            val pingColor = when { alive.ping < 200 -> Color(0xFF34D399); alive.ping < 500 -> Color(0xFFFBBF24); else -> Color(0xFFf87171) }
+                                            val httpColor = when { alive.httpPing < 0 -> Color.Gray.copy(alpha = 0.3f); alive.httpPing < 300 -> Color(0xFF34D399); alive.httpPing < 600 -> Color(0xFFFBBF24); else -> Color(0xFFf87171) }
+
                                             Row(
                                                 modifier = Modifier.fillMaxWidth()
-                                                    .clip(RoundedCornerShape(3.dp))
-                                                    .background(Color(0xFF00FF66).copy(alpha = 0.03f))
+                                                    .background(rowBg)
                                                     .padding(horizontal = 6.dp, vertical = 2.dp),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                                    Box(Modifier.size(4.dp).clip(CircleShape).background(when { alive.ping < 200 -> Color(0xFF34D399); alive.ping < 500 -> Color(0xFFFBBF24); else -> Color(0xFFf87171) }))
-                                                    Spacer(Modifier.width(4.dp))
-                                                    Text("${alive.ip}:${alive.port}#Nova-${alive.novaId}", fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color(0xFF00FF66).copy(alpha = 0.85f), maxLines = 1)
+                                                Text("${index + 1}", modifier = Modifier.width(18.dp), fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color.Gray)
+                                                Text(alive.ip, modifier = Modifier.weight(1f), fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = if (isLightTheme) Color(0xFF1E293B) else Color(0xFFE2E8F0), maxLines = 1)
+                                                Text("${alive.ping}", modifier = Modifier.width(32.dp), fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = pingColor, fontWeight = FontWeight.Bold)
+                                                Text(if (alive.httpPing > 0) "${alive.httpPing}" else "✗", modifier = Modifier.width(28.dp), fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = httpColor)
+                                                Text(speedStr, modifier = Modifier.width(28.dp), fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color(0xFFEAB308).copy(alpha = 0.8f))
+                                                Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                                                    Box(
+                                                        modifier = Modifier.size(16.dp).clip(RoundedCornerShape(2.dp))
+                                                            .background(Color(0xFF1E40AF).copy(alpha = 0.2f))
+                                                            .border(0.5.dp, Color(0xFF3B82F6).copy(alpha = 0.3f), RoundedCornerShape(2.dp))
+                                                            .clickable { viewModel.runSpeedTest(alive.ip, alive.port) },
+                                                        contentAlignment = Alignment.Center
+                                                    ) { Text("⚡", fontSize = 7.sp) }
+                                                    Box(
+                                                        modifier = Modifier.size(16.dp).clip(RoundedCornerShape(2.dp))
+                                                            .background(Color(0xFF064E3B).copy(alpha = 0.2f))
+                                                            .border(0.5.dp, Color(0xFF34D399).copy(alpha = 0.3f), RoundedCornerShape(2.dp))
+                                                            .clickable { viewModel.copyIndividualToClipboard(context, alive) },
+                                                        contentAlignment = Alignment.Center
+                                                    ) { Text("cpy", fontSize = 6.sp, color = Color(0xFF34D399)) }
                                                 }
-                                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                    Text("${alive.ping}ms", fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = when { alive.ping < 200 -> Color(0xFF34D399); alive.ping < 500 -> Color(0xFFFBBF24); else -> Color(0xFFf87171) })
-                                                    Text(speedStr, fontFamily = FontFamily.Monospace, fontSize = 7.sp, color = Color(0xFFEAB308).copy(alpha = 0.8f))
-                                                    TextButton(
-                                                        onClick = { viewModel.runSpeedTest(alive.ip, alive.port) },
-                                                        modifier = Modifier.height(20.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFF1E40AF).copy(alpha = 0.2f)).border(0.5.dp, Color(0xFF3B82F6).copy(alpha = 0.3f), RoundedCornerShape(3.dp)).padding(horizontal = 4.dp),
-                                                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                                                    ) { Text("📥", fontSize = 7.sp) }
-                                                    TextButton(
-                                                        onClick = { viewModel.copyIndividualToClipboard(context, alive) },
-                                                        modifier = Modifier.height(20.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFF064E3B).copy(alpha = 0.2f)).border(0.5.dp, Color(0xFF34D399).copy(alpha = 0.3f), RoundedCornerShape(3.dp)).padding(horizontal = 4.dp),
-                                                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp)
-                                                    ) { Text("cpy", fontSize = 7.sp, color = Color(0xFF34D399)) }
+                                            }
+
+                                            // Latency bar
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth()
+                                                    .padding(start = 24.dp, end = 6.dp)
+                                                    .height(1.dp)
+                                            ) {
+                                                val barWidth = (1f - (alive.ping.coerceAtMost(1000).toFloat() / 1000f)).coerceIn(0.02f, 0.98f)
+                                                Box(Modifier.weight(barWidth).fillMaxHeight().background(pingColor.copy(alpha = 0.4f)))
+                                                Box(Modifier.weight(1f - barWidth).fillMaxHeight().background(Color.Gray.copy(alpha = 0.08f)))
+                                            }
+
+                                            // Detail row: port + SNI badge
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth()
+                                                    .padding(start = 24.dp, end = 6.dp, bottom = 1.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Text(":${alive.port}", fontFamily = FontFamily.Monospace, fontSize = 6.sp, color = Color(0xFF22D3EE).copy(alpha = 0.5f))
+                                                if (alive.port in tlsPorts) {
+                                                    Box(Modifier.clip(RoundedCornerShape(2.dp)).background(Color(0xFF22D3EE).copy(alpha = 0.1f)).padding(horizontal = 3.dp)) {
+                                                        Text("TLS", fontSize = 5.sp, color = Color(0xFF22D3EE).copy(alpha = 0.6f))
+                                                    }
+                                                }
+                                                Box(Modifier.clip(RoundedCornerShape(2.dp)).background(Color(0xFFA855F7).copy(alpha = 0.1f)).padding(horizontal = 3.dp)) {
+                                                    Text("Nova-${alive.novaId}", fontSize = 5.sp, color = Color(0xFFA855F7).copy(alpha = 0.5f))
                                                 }
                                             }
                                         }
@@ -2321,6 +2394,9 @@ fun ImportScreen(viewModel: NovaRadarViewModel) {
     var outputText by remember { mutableStateOf("") }
     var showSuffixPrompt by remember { mutableStateOf(false) }
     var rawOutput by remember { mutableStateOf("") }
+    var importTab by remember { mutableIntStateOf(0) } // 0=manual paste, 1=auto scanner
+    var selectedOperator by remember { mutableStateOf("all") }
+    var ipCount by remember { mutableIntStateOf(20) }
 
     LaunchedEffect(isScanning, mode) {
         if (!isScanning && mode == 1 && aliveIps.isNotEmpty() && rawOutput.isEmpty()) {
@@ -2334,7 +2410,7 @@ fun ImportScreen(viewModel: NovaRadarViewModel) {
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
                 .padding(top = 96.dp, bottom = 120.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -2352,48 +2428,137 @@ fun ImportScreen(viewModel: NovaRadarViewModel) {
                         )
                     )
                     Text(
-                        text = "IP:PORT IMPORT",
+                        text = if (importTab == 0) "MANUAL PASTE" else "AUTO SCANNER",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.secondary
                     )
                 }
+                // Toggle between Manual and Auto
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    listOf(0 to "Manual", 1 to "Auto").forEach { (id, label) ->
+                        val isSel = importTab == id
+                        Button(
+                            onClick = { importTab = id },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isSel) Color(0xFF22D3EE).copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                contentColor = if (isSel) Color(0xFF22D3EE) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            ),
+                            modifier = Modifier.height(28.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                        ) { Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                    }
+                }
             }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
-            ) {
-                TextField(
-                    value = ipText,
-                    onValueChange = { ipText = it },
-                    modifier = Modifier.fillMaxSize().padding(8.dp),
-                    placeholder = {
-                        Text(
-                            Localization.get("import_placeholder", lang),
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                            fontFamily = FontFamily.Monospace
-                        )
-                    },
-                    textStyle = TextStyle(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    ),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    ),
-                    maxLines = Int.MAX_VALUE
-                )
+            if (importTab == 0) {
+                // Manual IP paste area
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                ) {
+                    TextField(
+                        value = ipText,
+                        onValueChange = { ipText = it },
+                        modifier = Modifier.fillMaxSize().padding(8.dp),
+                        placeholder = {
+                            Text(
+                                Localization.get("import_placeholder", lang),
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                fontFamily = FontFamily.Monospace
+                            )
+                        },
+                        textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        ),
+                        maxLines = Int.MAX_VALUE
+                    )
+                }
+            } else {
+                // Auto Scanner section (from HTML)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                        .padding(12.dp)
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Text("OPERATOR", fontFamily = FontFamily.Monospace, fontSize = 8.sp, color = Color(0xFF22D3EE).copy(alpha = 0.5f), letterSpacing = 1.sp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            listOf("all" to "All", "mci" to "MCI", "mtn" to "MTN", "ict" to "ICT").forEach { (key, label) ->
+                                val isSel = selectedOperator == key
+                                Button(
+                                    onClick = { selectedOperator = key },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isSel) Color(0xFF22D3EE).copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = if (isSel) Color(0xFF22D3EE) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    ),
+                                    modifier = Modifier.weight(1f).height(30.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) { Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                            }
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("Count:", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                            Slider(
+                                value = ipCount.toFloat(),
+                                onValueChange = { ipCount = it.toInt() },
+                                valueRange = 5f..100f,
+                                steps = 18,
+                                modifier = Modifier.weight(1f),
+                                colors = SliderDefaults.colors(
+                                    thumbColor = Color(0xFF22D3EE),
+                                    activeTrackColor = Color(0xFF22D3EE).copy(alpha = 0.5f),
+                                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            )
+                            Text("$ipCount", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color(0xFF22D3EE))
+                        }
+                        Button(
+                            onClick = {
+                                ipText = viewModel.generateOperatorIps(selectedOperator, ipCount)
+                                importTab = 0 // Switch to manual to show generated IPs
+                            },
+                            modifier = Modifier.fillMaxWidth().height(34.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF22D3EE).copy(alpha = 0.2f),
+                                contentColor = Color(0xFF22D3EE)
+                            )
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(12.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Generate IPs", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
 
+            // Mode selector
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -2411,10 +2576,10 @@ fun ImportScreen(viewModel: NovaRadarViewModel) {
                             containerColor = if (isSelected) color.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                             contentColor = if (isSelected) color else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         ),
-                        modifier = Modifier.weight(1f).height(36.dp),
+                        modifier = Modifier.weight(1f).height(34.dp),
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                     ) {
-                        Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(label, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     }
                 }
             }
@@ -2564,84 +2729,68 @@ fun ImportScreen(viewModel: NovaRadarViewModel) {
     }
 }
 
-// Page 4: ABOUT US SCREEN (Perfect replications of the desktop About pop-up menu - Screenshot 2)
 @Composable
 fun AboutScreen(viewModel: NovaRadarViewModel) {
     val lang by viewModel.selectedLanguage.collectAsState()
     val context = LocalContext.current
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+    val logs by viewModel.logs.collectAsState()
+    val scrollState = rememberScrollState()
 
     LocalizedLayout(lang) {
-        FadingScrollColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
-                .padding(horizontal = 14.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+                .padding(horizontal = 14.dp)
+                .padding(bottom = 88.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = Localization.get("tab_about", lang),
-                        style = MaterialTheme.typography.displayMedium.copy(
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    Color(0xFF22D3EE),
-                                    Color(0xFF818CF8),
-                                    Color(0xFFA855F7)
-                                )
-                            ),
-                            fontWeight = FontWeight.Black
-                        )
-                    )
-                    Text(
-                        text = "ORGANIZATION DETS",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                }
-            }
-
-            // About Container (Styled like the popup in image 2)
-            Box(
+            // No header spacer — content starts at top
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
                     .weight(1f)
-                    .padding(vertical = 4.dp),
-                contentAlignment = Alignment.Center
+                    .verticalScroll(scrollState)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                GlassyCard(
-                    borderColor = Color(0xFF22D3EE).copy(alpha = 0.35f)
+                // About box
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Column {
+                        Text(
+                            text = Localization.get("tab_about", lang),
+                            style = MaterialTheme.typography.displayMedium.copy(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(Color(0xFF22D3EE), Color(0xFF818CF8), Color(0xFFA855F7))
+                                ),
+                                fontWeight = FontWeight.Black
+                            )
+                        )
+                        Text(
+                            text = "ORGANIZATION DETS",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
+
+                GlassyCard(borderColor = Color(0xFF22D3EE).copy(alpha = 0.35f)) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Premium high-tech company brand photo logo
                         Image(
                             painter = painterResource(id = com.novaradar.app.R.drawable.img_nova_radar_logo_1781975654739),
                             contentDescription = "Nova Radar N Logo",
-                            modifier = Modifier
-                                .size(84.dp)
-                                .clip(CircleShape)
-                                .border(1.5.dp, Color(0xFF22D3EE), CircleShape),
+                            modifier = Modifier.size(84.dp).clip(CircleShape).border(1.5.dp, Color(0xFF22D3EE), CircleShape),
                             contentScale = ContentScale.Fit
                         )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Textured Crumpled Glitch Title as requested
-                        CrumpledGlitchText(
-                            text = "NOVA RADAR",
-                            style = MaterialTheme.typography.headlineSmall
-                        )
-
+                        Spacer(Modifier.height(8.dp))
+                        CrumpledGlitchText(text = "NOVA RADAR", style = MaterialTheme.typography.headlineSmall)
                         Text(
                             text = Localization.get("about_sub", lang),
                             style = MaterialTheme.typography.bodyMedium,
@@ -2649,120 +2798,54 @@ fun AboutScreen(viewModel: NovaRadarViewModel) {
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.padding(top = 4.dp)
                         )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Link cards which are fully interactive & open in system browser
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        ) {
-                            // GitHub link
-                            AboutLinkItem(
-                                title = "GitHub",
-                                subtitle = "https://github.com/IRNova/NovaRadar",
-                                icon = Icons.Outlined.Code,
-                                onClick = {
-                                    try {
-                                        uriHandler.openUri("https://github.com/IRNova/NovaRadar")
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    }
-                                }
-                            )
-
-                            // Telegram link
-                            AboutLinkItem(
-                                title = "Telegram Channel",
-                                subtitle = "https://t.me/irnova_proxy",
-                                icon = Icons.Outlined.Send,
-                                onClick = {
-                                    try {
-                                        uriHandler.openUri("https://t.me/irnova_proxy")
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    }
-                                }
-                            )
-
-                            // Wizard link
-                            AboutLinkItem(
-                                title = "Wizard Website",
-                                subtitle = "https://novaproxy.online/install",
-                                icon = Icons.Outlined.Language,
-                                onClick = {
-                                    try {
-                                        uriHandler.openUri("https://novaproxy.online/install")
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    }
-                                }
-                            )
+                        Spacer(Modifier.height(12.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            AboutLinkItem(title = "GitHub", subtitle = "https://github.com/IRNova/NovaRadar", icon = Icons.Outlined.Code, onClick = { try { uriHandler.openUri("https://github.com/IRNova/NovaRadar") } catch (e: Exception) { e.printStackTrace() } })
+                            AboutLinkItem(title = "Telegram Channel", subtitle = "https://t.me/irnova_proxy", icon = Icons.Outlined.Send, onClick = { try { uriHandler.openUri("https://t.me/irnova_proxy") } catch (e: Exception) { e.printStackTrace() } })
+                            AboutLinkItem(title = "Wizard Website", subtitle = "https://novaproxy.online/install", icon = Icons.Outlined.Language, onClick = { try { uriHandler.openUri("https://novaproxy.online/install") } catch (e: Exception) { e.printStackTrace() } })
                         }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Footer version label
-                        Text(
-                            text = "v${com.novaradar.app.BuildConfig.VERSION_NAME}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
+                        Spacer(Modifier.height(10.dp))
+                        Text(text = "v${com.novaradar.app.BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                     }
                 }
-            }
 
-            // Terminal / Logs section
-            Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "TERMINAL LOG",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 8.sp,
-                        color = Color(0xFF22D3EE).copy(alpha = 0.5f),
-                        letterSpacing = 1.sp
-                    )
-                    TextButton(
-                        onClick = { viewModel.clearLogs() },
-                        modifier = Modifier.height(28.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp)
+                // Terminal / Logs section integrated inline
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(Localization.get("clear", lang), fontSize = 9.sp, color = Color(0xFF22D3EE))
-                    }
-                }
-                Spacer(Modifier.height(4.dp))
-                val logs by viewModel.logs.collectAsState()
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 80.dp, max = 200.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFF030712))
-                        .border(1.dp, Color(0xFF22D3EE).copy(alpha = 0.3f), RoundedCornerShape(16.dp))
-                        .padding(10.dp)
-                ) {
-                    if (logs.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("TERMINAL IDLE", fontFamily = FontFamily.Monospace, fontSize = 8.sp, color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f))
+                        Text("TERMINAL LOG", fontFamily = FontFamily.Monospace, fontSize = 8.sp, color = Color(0xFF22D3EE).copy(alpha = 0.5f), letterSpacing = 1.sp)
+                        TextButton(onClick = { viewModel.clearLogs() }, modifier = Modifier.height(28.dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                            Text(Localization.get("clear", lang), fontSize = 9.sp, color = Color(0xFF22D3EE))
                         }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            items(logs) { log ->
-                                val textColor = when {
-                                    log.contains("✔ ALIVE") || log.contains("✔") -> Color(0xFF22D3EE)
-                                    log.contains("✖ DEAD") || log.contains("✖") -> Color(0xFFEF4444).copy(alpha = 0.5f)
-                                    log.contains("======") -> Color(0xFF22D3EE)
-                                    else -> Color(0xFF9CA3AF)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 80.dp, max = 280.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFF030712))
+                            .border(1.dp, Color(0xFF22D3EE).copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                            .padding(10.dp)
+                    ) {
+                        if (logs.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("TERMINAL IDLE", fontFamily = FontFamily.Monospace, fontSize = 8.sp, color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f))
+                            }
+                        } else {
+                            LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                items(logs) { log ->
+                                    val textColor = when {
+                                        log.contains("✔ ALIVE") || log.contains("✔") -> Color(0xFF22D3EE)
+                                        log.contains("✖ DEAD") || log.contains("✖") -> Color(0xFFEF4444).copy(alpha = 0.5f)
+                                        log.contains("======") -> Color(0xFF22D3EE)
+                                        else -> Color(0xFF9CA3AF)
+                                    }
+                                    Text(log, style = MaterialTheme.typography.labelSmall, color = textColor, maxLines = 1, fontSize = 8.sp)
                                 }
-                                Text(log, style = MaterialTheme.typography.labelSmall, color = textColor, maxLines = 1, fontSize = 8.sp)
                             }
                         }
                     }
