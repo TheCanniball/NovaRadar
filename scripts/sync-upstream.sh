@@ -31,7 +31,10 @@ if [ -f "$EXCLUDE_FILE" ]; then
     mapfile -t EXCLUDE_PATTERNS < <(grep -v '^\s*#' "$EXCLUDE_FILE" | grep -v '^\s*$')
 fi
 
-git checkout "$SOURCE_BRANCH"
+# Clean working tree and switch to source branch
+git reset --hard HEAD 2>/dev/null || true
+git clean -fd 2>/dev/null || true
+git checkout -f "$SOURCE_BRANCH"
 
 echo "Filtering tracked files..."
 ALL_FILES=$(git ls-files)
