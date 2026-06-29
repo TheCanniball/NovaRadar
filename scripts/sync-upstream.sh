@@ -72,6 +72,7 @@ if [ "${#FILTERED[@]}" -eq 0 ]; then
 fi
 
 # Save list for debugging
+mkdir -p .upstream
 printf '%s\n' "${FILTERED[@]}" > .upstream/last-sync-files.txt
 
 # Create orphan branch (clean slate)
