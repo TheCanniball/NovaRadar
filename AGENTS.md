@@ -8,9 +8,9 @@ Read this first to understand the project architecture, build process, scanning 
 
 | Field | Value |
 |-------|-------|
-| Package | `com.novaradar.app` (may change for Play Protect) |
-| Version | `1.2.0` (semantic, in `app/build.gradle.kts`) |
-| Version Code | `4` (increment each release) |
+| Package | `com.novaproxy.scanner` (changed from com.novaradar.app for Play Protect) |
+| Version | `1.3.0` (semantic, in `app/build.gradle.kts`) |
+| Version Code | `2` (increment each release) |
 | Min SDK | 24 (Android 7.0) |
 | Target SDK | 35 |
 | Compile SDK | 36 |
@@ -63,6 +63,7 @@ NovaRadar/
 | 1.0.01 | 2026-06-24 | Initial Play Store-compatible build, Room DB, icon rebrand |
 | 1.1.0 | 2026-06-28 | Tag/release #1 to main, CI fixed, JDK 21 + keystore password 123456 |
 | 1.2.0 | 2026-06-29 | Green ATC-style circular radar, sticky bottom nav, compact list-style ResultsTab, all HTML features ported |
+| 1.3.0 | 2026-06-29 | Play Protect fix (appId change), ping filter slider, copy dropdown per row, speed test visual feedback |
 
 ---
 
@@ -356,4 +357,4 @@ App flagged as "Harmful app" by Google Play Protect on sideloaded devices.
 
 ---
 
-*Last updated: 2026-06-29 | Version: 1.2.0*
+*Last updated: 2026-06-29 | Version: 1.3.0*

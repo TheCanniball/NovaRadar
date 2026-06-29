@@ -226,9 +226,14 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
     private val _speedResults = MutableStateFlow<MutableMap<String, String>>(mutableMapOf())
     val speedResults: StateFlow<Map<String, String>> = _speedResults.asStateFlow()
 
+    private val _runningSpeedTests = MutableStateFlow<Set<String>>(emptySet())
+    val runningSpeedTests: StateFlow<Set<String>> = _runningSpeedTests.asStateFlow()
+
     fun runSpeedTest(ip: String, port: Int) {
         val key = "$ip:$port"
+        if (key in _runningSpeedTests.value) return
         _speedResults.value = _speedResults.value.toMutableMap().apply { put(key, "⏳") }
+        _runningSpeedTests.value = _runningSpeedTests.value + key
         viewModelScope.launch(Dispatchers.IO) {
             var totalTime = 0L
             var successes = 0
@@ -250,6 +255,7 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
             } else 0.0
             val label = if (speed > 0) "%.1f MB/s".format(speed) else "❌"
             _speedResults.value = _speedResults.value.toMutableMap().apply { put(key, label) }
+            _runningSpeedTests.value = _runningSpeedTests.value - key
         }
     }
 
@@ -1051,6 +1057,13 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
         val clip = ClipData.newPlainText("NovaRadarConfig", config)
         clipboard.setPrimaryClip(clip)
         Toast.makeText(context, if (_selectedLanguage.value == AppLanguage.FA) "کپی شد: $config" else "Copied: $config", Toast.LENGTH_SHORT).show()
+    }
+
+    fun copyIndividualIpToClipboard(context: Context, item: AliveIp) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("NovaRadarConfig", item.ip)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(context, if (_selectedLanguage.value == AppLanguage.FA) "کپی شد: ${item.ip}" else "Copied: ${item.ip}", Toast.LENGTH_SHORT).show()
     }
 
     private fun generateIpsForSubnet(cidrString: String, maxCount: Int): List<String> {
