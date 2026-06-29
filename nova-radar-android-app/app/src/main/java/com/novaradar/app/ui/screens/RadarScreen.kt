@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -416,40 +417,70 @@ private fun ResultsTab(
     cfgPath: String, onCfgPath: (String) -> Unit
 ) {
     val speedResults by viewModel.speedResults.collectAsState()
+    val runningSpeedTests by viewModel.runningSpeedTests.collectAsState()
+    var maxPing by remember { mutableStateOf(9999) }
+    var showPingSlider by remember { mutableStateOf(false) }
+
+    val filteredIps = if (maxPing >= 9999) allIps else allIps.filter { it.ping <= maxPing }
 
     LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         // Header
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(if (isScanning) Wc.warning else if (allIps.isNotEmpty()) Wc.success else Color.Gray.copy(alpha = 0.3f)))
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        if (isScanning) "SCANNING..." else if (allIps.isNotEmpty()) "${allIps.size} TARGETS" else "NO TARGETS",
-                        fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
-                        color = if (isLight) Color(0xFF1A202C) else Wc.onSurfaceDark
-                    )
-                    if (allIps.isNotEmpty()) {
+            Column {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(if (isScanning) Wc.warning else if (allIps.isNotEmpty()) Wc.success else Color.Gray.copy(alpha = 0.3f)))
                         Spacer(Modifier.width(6.dp))
-                        Text("Ø${allIps.map { it.ping }.average().toLong()}ms", fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = if (isLight) Color(0xFF4A5568) else Color.Gray)
+                        Text(
+                            if (isScanning) "SCANNING..." else if (allIps.isNotEmpty()) "${if (maxPing >= 9999) allIps.size else "${filteredIps.size}/${allIps.size}"} TARGETS" else "NO TARGETS",
+                            fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
+                            color = if (isLight) Color(0xFF1A202C) else Wc.onSurfaceDark
+                        )
+                        if (allIps.isNotEmpty()) {
+                            Spacer(Modifier.width(6.dp))
+                            Text("Ø${allIps.map { it.ping }.average().toLong()}ms", fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = if (isLight) Color(0xFF4A5568) else Color.Gray)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        IconButton(onClick = { showPingSlider = !showPingSlider }, modifier = Modifier.size(26.dp)) {
+                            Icon(Icons.Default.FilterList, null, tint = if (maxPing >= 9999) Wc.primary else Wc.warning, modifier = Modifier.size(14.dp))
+                        }
+                        IconButton(onClick = { viewModel.copyAllToClipboard(context) }, modifier = Modifier.size(26.dp)) {
+                            Icon(Icons.Default.ContentCopy, null, tint = Wc.primary, modifier = Modifier.size(14.dp))
+                        }
+                        IconButton(onClick = { viewModel.exportResultsToTxtFile(context) }, modifier = Modifier.size(26.dp)) {
+                            Icon(Icons.Default.Save, null, tint = Wc.primary, modifier = Modifier.size(14.dp))
+                        }
+                        IconButton(onClick = { onShowConfigBuilder(true) }, modifier = Modifier.size(26.dp)) {
+                            Icon(Icons.Default.Build, null, tint = Wc.primary, modifier = Modifier.size(14.dp))
+                        }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    IconButton(onClick = { viewModel.copyAllToClipboard(context) }, modifier = Modifier.size(26.dp)) {
-                        Icon(Icons.Default.ContentCopy, null, tint = Wc.primary, modifier = Modifier.size(14.dp))
-                    }
-                    IconButton(onClick = { viewModel.exportResultsToTxtFile(context) }, modifier = Modifier.size(26.dp)) {
-                        Icon(Icons.Default.Save, null, tint = Wc.primary, modifier = Modifier.size(14.dp))
-                    }
-                    IconButton(onClick = { onShowConfigBuilder(true) }, modifier = Modifier.size(26.dp)) {
-                        Icon(Icons.Default.Build, null, tint = Wc.primary, modifier = Modifier.size(14.dp))
+                // Ping filter slider
+                if (showPingSlider) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (isLight) Color(0xFFEDF2F7) else Color(0xFF1C2333)).padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("PING ≤", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = if (isLight) Color(0xFF4A5568) else Color.Gray)
+                        Slider(
+                            value = maxPing.toFloat(), onValueChange = { maxPing = it.toInt() },
+                            valueRange = 50f..2000f,
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                            colors = SliderDefaults.colors(thumbColor = Wc.primary, activeTrackColor = Wc.primary.copy(alpha = 0.5f))
+                        )
+                        Text("${maxPing}ms", fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (maxPing < 9999) Wc.warning else if (isLight) Color(0xFF4A5568) else Color.Gray)
+                        if (maxPing < 9999) {
+                            Spacer(Modifier.width(4.dp))
+                            Box(Modifier.size(16.dp).clip(RoundedCornerShape(4.dp)).background(Wc.error.copy(alpha = 0.15f)).clickable(remember { MutableInteractionSource() }, null) { maxPing = 9999 }, contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Close, null, tint = Wc.error, modifier = Modifier.size(10.dp))
+                            }
+                        }
                     }
                 }
             }
         }
 
         // Export format row
-        if (allIps.isNotEmpty()) {
+        if (filteredIps.isNotEmpty()) {
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     listOf("Clash" to { viewModel.exportClash(context) }, "V2Ray" to { viewModel.exportV2Ray(context) }, "VLESS" to { viewModel.exportVLESS(context) }, "SingBox" to { viewModel.exportSingBox(context) }).forEach { (label, action) ->
@@ -461,7 +492,7 @@ private fun ResultsTab(
             }
         }
 
-        if (allIps.isEmpty()) {
+        if (filteredIps.isEmpty()) {
             item {
                 Box(Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -484,11 +515,13 @@ private fun ResultsTab(
                 }
             }
 
-            itemsIndexed(allIps, key = { _, ip -> "${ip.ip}:${ip.port}" }) { index, alive ->
+            itemsIndexed(filteredIps, key = { _, ip -> "${ip.ip}:${ip.port}" }) { index, alive ->
                 val speedKey = "${alive.ip}:${alive.port}"
                 val speedStr = speedResults[speedKey] ?: "--"
+                val isTesting = speedKey in runningSpeedTests
                 val pingColor = when { alive.ping < 200 -> Wc.success; alive.ping < 500 -> Wc.warning; else -> Wc.error }
                 val httpColor = when { alive.httpPing < 0 -> Color.Gray.copy(alpha = 0.3f); alive.httpPing < 300 -> Wc.success; alive.httpPing < 600 -> Wc.warning; else -> Wc.error }
+                var showCopyMenu by remember { mutableStateOf(false) }
 
                 Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (index % 2 == 0) Color.Transparent else (if (isLight) Color(0xFFF7FAFC) else Color(0xFF111827).copy(alpha = 0.3f))).padding(horizontal = 6.dp, vertical = 4.dp)) {
                     Column {
@@ -507,20 +540,22 @@ private fun ResultsTab(
                             }
                             Text("${alive.ping}", Modifier.width(34.dp), fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = pingColor)
                             Text(if (alive.httpPing > 0) "${alive.httpPing}" else "--", Modifier.width(30.dp), fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = httpColor)
-                            Text(speedStr, Modifier.width(28.dp), fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = Wc.warning.copy(alpha = 0.8f))
+                            Text(if (isTesting) "⏳" else speedStr, Modifier.width(28.dp), fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = Wc.warning.copy(alpha = 0.8f))
 
                             Row(Modifier.width(48.dp), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                                 // ⚡ Speed test button
-                                Box(Modifier.size(22.dp).clip(RoundedCornerShape(4.dp)).background(Wc.info.copy(alpha = 0.12f)).clickable(remember { MutableInteractionSource() }, null) {
-                                    viewModel.runSpeedTest(alive.ip, alive.port)
-                                }, contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(22.dp).clip(RoundedCornerShape(4.dp)).background(if (isTesting) Wc.info.copy(alpha = 0.05f) else Wc.info.copy(alpha = 0.12f)).then(if (!isTesting) Modifier.clickable(remember { MutableInteractionSource() }, null) { viewModel.runSpeedTest(alive.ip, alive.port) } else Modifier), contentAlignment = Alignment.Center) {
                                     Text("⚡", fontSize = 9.sp)
                                 }
-                                // Copy button
-                                Box(Modifier.size(22.dp).clip(RoundedCornerShape(4.dp)).background(Wc.success.copy(alpha = 0.12f)).clickable(remember { MutableInteractionSource() }, null) {
-                                    viewModel.copyIndividualToClipboard(context, alive)
-                                }, contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.ContentCopy, null, tint = Wc.success, modifier = Modifier.size(10.dp))
+                                // Copy button with dropdown
+                                Box {
+                                    Box(Modifier.size(22.dp).clip(RoundedCornerShape(4.dp)).background(Wc.success.copy(alpha = 0.12f)).clickable(remember { MutableInteractionSource() }, null) { showCopyMenu = true }, contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.ContentCopy, null, tint = Wc.success, modifier = Modifier.size(10.dp))
+                                    }
+                                    DropdownMenu(expanded = showCopyMenu, onDismissRequest = { showCopyMenu = false }) {
+                                        DropdownMenuItem(text = { Text("Copy IP", fontSize = 12.sp) }, onClick = { showCopyMenu = false; viewModel.copyIndividualIpToClipboard(context, alive) })
+                                        DropdownMenuItem(text = { Text("Copy IP:Port", fontSize = 12.sp) }, onClick = { showCopyMenu = false; viewModel.copyIndividualToClipboard(context, alive) })
+                                    }
                                 }
                             }
                         }
