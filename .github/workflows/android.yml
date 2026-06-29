@@ -103,6 +103,7 @@ jobs:
 
       - name: Grant execute permission
         run: chmod +x gradlew
+        working-directory: nova-radar-android-app
 
       - name: Build APKs + AAB
         run: ./gradlew assembleRelease bundleRelease
