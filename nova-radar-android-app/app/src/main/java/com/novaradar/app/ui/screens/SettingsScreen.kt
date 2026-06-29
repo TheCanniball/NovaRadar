@@ -41,7 +41,7 @@ fun SettingsScreen(viewModel: NovaRadarViewModel) {
 
     var speedLimit by remember { mutableFloatStateOf(10f) }
 
-    Box(Modifier.fillMaxSize().padding(horizontal = 14.dp).padding(bottom = 88.dp)) {
+    Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             WidgetCard(isLightTheme = isLight) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

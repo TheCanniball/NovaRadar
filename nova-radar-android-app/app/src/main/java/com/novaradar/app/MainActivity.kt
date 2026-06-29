@@ -105,33 +105,38 @@ fun MainAppLayout(viewModel: NovaRadarViewModel) {
     val pagerState = rememberPagerState(initialPage = 2, pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
 
-    val headerHeight = 68.dp
-    val navBarHeight = 68.dp
-    val fadeHeight = 100.dp
-
     CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
             // Main content pager
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .testTag("main_horizontal_pager")
-            ) { page ->
-                when (page) {
-                    0 -> EasyInstallerScreen(viewModel)
-                    1 -> SettingsScreen(viewModel)
-                    2 -> RadarScreen(viewModel)
-                    3 -> ImportScreen(viewModel)
-                    4 -> AboutScreen(viewModel)
+            Box(Modifier.weight(1f)) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("main_horizontal_pager")
+                ) { page ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 14.dp)
+                            .padding(top = 8.dp)
+                    ) {
+                        when (page) {
+                            0 -> EasyInstallerScreen(viewModel)
+                            1 -> SettingsScreen(viewModel)
+                            2 -> RadarScreen(viewModel)
+                            3 -> ImportScreen(viewModel)
+                            4 -> AboutScreen(viewModel)
+                        }
+                    }
                 }
             }
 
-            // Floating Navigation Bar with glassmorphism
+            // Sticky bottom navigation bar
             val isScanning by viewModel.isScanning.collectAsState()
             val pulseAnim by rememberInfiniteTransition().animateFloat(
                 initialValue = 0.3f, targetValue = 1f,
@@ -140,18 +145,15 @@ fun MainAppLayout(viewModel: NovaRadarViewModel) {
             )
             NavigationBar(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(bottom = 12.dp, start = 14.dp, end = 14.dp)
-                    .height(navBarHeight)
-                    .clip(RoundedCornerShape(32.dp))
+                    .fillMaxWidth()
+                    .height(64.dp)
                     .border(
-                        width = 1.5.dp,
-                        color = if (isDark) Color(0xFF2D3A5C).copy(alpha = 0.5f) else Color(0xFFCBD5E1).copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(32.dp)
+                        width = 0.5.dp,
+                        color = if (isDark) Color(0xFF2D3A5C).copy(alpha = 0.3f) else Color(0xFFCBD5E1).copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
                     ),
-                containerColor = if (isDark) Color(0xFF151B2D).copy(alpha = 0.7f) else Color.White.copy(alpha = 0.7f),
-                tonalElevation = 8.dp
+                containerColor = if (isDark) Color(0xFF0D1219).copy(alpha = 0.95f) else Color.White.copy(alpha = 0.95f),
+                tonalElevation = 0.dp
             ) {
                 val items = listOf(
                     NavigationItemData(key = "tab_installer", selectedIcon = Icons.Filled.Download, unselectedIcon = Icons.Outlined.Download),
@@ -161,106 +163,57 @@ fun MainAppLayout(viewModel: NovaRadarViewModel) {
                     NavigationItemData(key = "tab_about", selectedIcon = Icons.Filled.Info, unselectedIcon = Icons.Outlined.Info)
                 )
 
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    items.forEachIndexed { index, item ->
-                        val isSelected = pagerState.currentPage == index
-                        val isRadar = index == 2
+                items.forEachIndexed { index, item ->
+                    val isSelected = pagerState.currentPage == index
+                    val isRadar = index == 2
 
-                        NavigationBarItem(
-                            selected = isSelected,
-                            onClick = {
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(index)
-                                }
-                            },
-                            icon = {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.size(if (isRadar) 56.dp else 44.dp)
-                                ) {
-                                    if (isSelected && !isRadar) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(40.dp)
-                                                .clip(CircleShape)
-                                                .background(
-                                                    if (isDark) Color.White.copy(alpha = 0.08f)
-                                                    else Color(0xFF2563EB).copy(alpha = 0.08f)
-                                                )
-                                                .border(
-                                                    width = 1.dp,
-                                                    color = if (isDark) Color.White.copy(alpha = 0.12f)
-                                                    else Color(0xFF2563EB).copy(alpha = 0.12f),
-                                                    shape = CircleShape
-                                                )
-                                        )
-                                    }
-                                    if (isRadar) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(56.dp)
-                                                .clip(CircleShape)
-                                                .background(
-                                                    if (isScanning)
-                                                        Brush.linearGradient(listOf(Color(0xFFBE123C), Color(0xFF9F1239)))
-                                                    else
-                                                        Brush.linearGradient(listOf(Color(0xFFDC2626), Color(0xFF991B1B)))
-                                                )
-                                                .border(2.dp, if (isDark) Color.White.copy(alpha = 0.15f) else Color(0xFF2563EB).copy(alpha = 0.2f), CircleShape)
-                                                .clickable {
-                                                    if (isScanning) {
-                                                        viewModel.stopScan()
-                                                    } else {
-                                                        viewModel.startScan()
-                                                        // Auto-navigate to Radar screen (Index 2)
-                                                        coroutineScope.launch {
-                                                            pagerState.animateScrollToPage(2)
-                                                        }
-                                                    }
-                                                }
-                                                .testTag("nav_start_button"),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (isScanning) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(60.dp)
-                                                        .clip(CircleShape)
-                                                        .background(Color(0xFFBE123C).copy(alpha = pulseAnim * 0.25f))
-                                                )
-                                            }
-                                            Icon(
-                                                imageVector = Icons.Default.PowerSettingsNew,
-                                                contentDescription = "Start/Stop",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(28.dp)
+                    NavigationBarItem(
+                        selected = isSelected,
+                        onClick = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        },
+                        icon = {
+                            Box(contentAlignment = Alignment.Center) {
+                                if (isRadar) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (isScanning)
+                                                    Brush.linearGradient(listOf(Color(0xFFBE123C), Color(0xFF9F1239)))
+                                                else
+                                                    Brush.linearGradient(listOf(Color(0xFFDC2626), Color(0xFF991B1B)))
                                             )
-                                        }
-                                    } else {
-                                        Icon(
-                                            imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
-                                            contentDescription = Localization.get(item.key, lang),
-                                            tint = if (isSelected) {
-                                                if (isDark) Color(0xFF4DA8FF) else Color(0xFF2563EB)
-                                            } else {
-                                                if (isDark) Color(0xFFE2E8F0).copy(alpha = 0.4f)
-                                                else Color(0xFF334155).copy(alpha = 0.4f)
-                                            },
-                                            modifier = Modifier.size(24.dp)
-                                        )
+                                            .clickable {
+                                                if (isScanning) viewModel.stopScan()
+                                                else { viewModel.startScan(); coroutineScope.launch { pagerState.animateScrollToPage(2) } }
+                                            }
+                                            .testTag("nav_start_button"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.PowerSettingsNew, "Start/Stop", tint = Color.White, modifier = Modifier.size(24.dp))
                                     }
+                                } else {
+                                    Icon(
+                                        imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
+                                        contentDescription = Localization.get(item.key, lang),
+                                        tint = if (isSelected) {
+                                            if (isDark) Color(0xFF4DA8FF) else Color(0xFF2563EB)
+                                        } else {
+                                            if (isDark) Color(0xFFE2E8F0).copy(alpha = 0.4f) else Color(0xFF334155).copy(alpha = 0.4f)
+                                        },
+                                        modifier = Modifier.size(22.dp)
+                                    )
                                 }
-                            },
-                            alwaysShowLabel = false,
-                            colors = NavigationBarItemDefaults.colors(
-                                indicatorColor = Color.Transparent
-                            ),
-                            modifier = Modifier.testTag("nav_item_${item.key}")
-                        )
-                    }
+                            }
+                        },
+                        alwaysShowLabel = false,
+                        colors = NavigationBarItemDefaults.colors(indicatorColor = Color.Transparent),
+                        modifier = Modifier.testTag("nav_item_${item.key}")
+                    )
                 }
             }
         }

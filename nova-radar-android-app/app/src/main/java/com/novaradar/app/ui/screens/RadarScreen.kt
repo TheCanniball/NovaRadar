@@ -5,7 +5,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -84,10 +83,10 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
     val sweepBrush = remember {
         Brush.sweepGradient(
             0.0f to Color.Transparent, 0.5f to Color.Transparent,
-            0.7f to Wc.primary.copy(alpha = 0.02f),
-            0.85f to Wc.primary.copy(alpha = 0.20f),
-            0.95f to Wc.primary.copy(alpha = 0.50f),
-            1.0f to Wc.primary.copy(alpha = 0.85f)
+            0.7f to radarGreen.copy(alpha = 0.02f),
+            0.85f to radarGreen.copy(alpha = 0.15f),
+            0.95f to radarGreen.copy(alpha = 0.35f),
+            1.0f to radarGreen.copy(alpha = 0.60f)
         )
     }
 
@@ -108,10 +107,7 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 14.dp)
-            .padding(bottom = 88.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // Sub-tabs
@@ -173,11 +169,12 @@ private fun ScannerTab(
         Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // Radar widget — fixed height, not scrollable
-        WidgetCard(isLightTheme = isLight, borderColor = Wc.primary.copy(alpha = 0.12f), modifier = Modifier.fillMaxWidth().heightIn(min = 260.dp, max = 320.dp)) {
+        // Radar widget — fixed square aspect ratio with green circular radar
+        WidgetCard(isLightTheme = isLight, borderColor = Wc.primary.copy(alpha = 0.12f), modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
             Box(
-                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp))
-                    .background(if (isLight) Color(0xFFF0FDF4) else Color(0xFF021708))
+                modifier = Modifier.fillMaxSize()
+                    .clip(CircleShape)
+                    .background(if (isLight) Color(0xFF001a0a) else Color(0xFF000d05))
                     .clickable(remember { MutableInteractionSource() }, null) { onShowFullscreen(true) },
                 contentAlignment = Alignment.Center
             ) {
@@ -233,6 +230,9 @@ private fun ScannerTab(
     }
 }
 
+private val radarGreen = Color(0xFF00FF66)
+private val radarDim = Color(0xFF003322)
+
 @Composable
 private fun RadarCanvas(
     allIps: List<AliveIp>, dotPositions: List<DotPos>,
@@ -241,16 +241,30 @@ private fun RadarCanvas(
     Canvas(Modifier.fillMaxSize()) {
         val r = size.minDimension / 2f
         val c = Offset(size.width / 2f, size.height / 2f)
-        val outer = r * 0.75f
+        val outer = r * 0.85f
 
-        val sweepAlpha = if (isScanning) 1f else 0.15f
+        val alphaScale = if (isScanning) 1f else 0.10f
+
+        // Range rings — ATC style concentric circles
+        for (i in 1..4) {
+            val radius = outer * (i / 4f)
+            val ringAlpha = 0.12f + (i / 4f) * 0.12f
+            drawCircle(color = radarGreen.copy(alpha = ringAlpha * alphaScale), radius = radius, style = Stroke(1.dp.toPx()))
+        }
+
+        // Crosshairs
+        drawLine(color = radarGreen.copy(alpha = 0.08f * alphaScale), start = Offset(c.x - outer, c.y), end = Offset(c.x + outer, c.y), strokeWidth = 0.5.dp.toPx())
+        drawLine(color = radarGreen.copy(alpha = 0.08f * alphaScale), start = Offset(c.x, c.y - outer), end = Offset(c.x, c.y + outer), strokeWidth = 0.5.dp.toPx())
+        val diag = outer * 0.707f
+        drawLine(radarGreen.copy(alpha = 0.05f * alphaScale), Offset(c.x - diag, c.y - diag), Offset(c.x + diag, c.y + diag), 0.5.dp.toPx())
+        drawLine(radarGreen.copy(alpha = 0.05f * alphaScale), Offset(c.x + diag, c.y - diag), Offset(c.x - diag, c.y + diag), 0.5.dp.toPx())
 
         // Sweep gradient
         drawIntoCanvas { canvas ->
             canvas.save()
             canvas.translate(c.x, c.y)
             canvas.rotate(animatedAngle)
-            drawCircle(brush = sweepBrush, radius = outer, alpha = sweepAlpha)
+            drawCircle(brush = sweepBrush, radius = outer, alpha = alphaScale)
             canvas.restore()
         }
 
@@ -258,9 +272,13 @@ private fun RadarCanvas(
         val aRad = Math.toRadians(animatedAngle.toDouble())
         val ex = c.x + outer * cos(aRad).toFloat()
         val ey = c.y + outer * sin(aRad).toFloat()
-        drawLine(color = Wc.primary.copy(alpha = 0.60f * sweepAlpha), start = c, end = Offset(ex, ey), strokeWidth = 2.dp.toPx())
+        drawLine(color = radarGreen.copy(alpha = 0.65f * alphaScale), start = c, end = Offset(ex, ey), strokeWidth = 1.5.dp.toPx())
 
-        // Draw top 10 dots with ping labels
+        // Center dot
+        drawCircle(color = radarGreen.copy(alpha = 0.8f * alphaScale), radius = 3.dp.toPx())
+        drawCircle(color = radarGreen.copy(alpha = 0.2f * alphaScale), radius = 5.dp.toPx(), style = Stroke(0.5.dp.toPx()))
+
+        // Draw top 10 dots
         allIps.take(10).forEachIndexed { index, alive ->
             if (index < dotPositions.size) {
                 val dp = dotPositions[index]
@@ -269,28 +287,31 @@ private fun RadarCanvas(
                 val dx = c.x + distPx * cos(daRad).toFloat()
                 val dy = c.y + distPx * sin(daRad).toFloat()
 
-                val dotColor = when { alive.ping < 200 -> Wc.successLight; alive.ping < 500 -> Wc.warning; else -> Wc.error }
+                val dotColor = when {
+                    alive.ping < 200 -> radarGreen
+                    alive.ping < 500 -> Color(0xFFFFCC00)
+                    else -> Color(0xFFFF4444)
+                }
 
-                // Sweep highlight: dot is bright when sweep is near, fades behind
                 val angleDiff = ((animatedAngle - dp.angle + 720f) % 360f) / 360f
                 val baseAlpha = if (isScanning) {
                     val highlight = (1f - angleDiff * 4f).coerceIn(0f, 1f)
-                    val persist = (1f - ((angleDiff - 0.25f) * 2f).coerceIn(0f, 1f)) * 0.3f
+                    val persist = (1f - ((angleDiff - 0.25f) * 2f).coerceIn(0f, 1f)) * 0.2f
                     highlight + persist
-                } else 0.2f
+                } else 0.15f
                 val alpha = baseAlpha.coerceIn(0.05f, 1f)
 
-                drawCircle(color = dotColor.copy(alpha = 0.25f * alpha), radius = 7.dp.toPx(), center = Offset(dx, dy))
-                drawCircle(color = dotColor.copy(alpha = alpha), radius = 3.5f.dp.toPx(), center = Offset(dx, dy))
+                drawCircle(color = dotColor.copy(alpha = 0.3f * alpha), radius = 6.dp.toPx(), center = Offset(dx, dy), style = Stroke(1.dp.toPx()))
+                drawCircle(color = dotColor.copy(alpha = alpha), radius = 3.dp.toPx(), center = Offset(dx, dy))
 
                 val paint = android.graphics.Paint().apply {
-                    color = android.graphics.Color.argb((alpha.coerceIn(0.3f, 1f) * 255).toInt(), 255, 255, 255)
-                    textSize = 22f
+                    color = android.graphics.Color.argb((alpha.coerceIn(0.4f, 1f) * 255).toInt(), 0, 255, 102)
+                    textSize = 20f
                     textAlign = android.graphics.Paint.Align.CENTER
                     isAntiAlias = true
                 }
                 if (index < 5) {
-                    drawContext.canvas.nativeCanvas.drawText("${alive.ping}ms", dx, dy - 10.dp.toPx(), paint)
+                    drawContext.canvas.nativeCanvas.drawText("${alive.ping}ms", dx, dy - 8.dp.toPx(), paint)
                 }
             }
         }
@@ -310,23 +331,37 @@ private fun FullscreenRadarDialog(
             colors = CardDefaults.cardColors(containerColor = if (isLight) Color(0xFFF8FAFC) else Color(0xFF0D1219))
         ) {
             Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("TOP 10 TARGETS", fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Wc.primary, letterSpacing = 2.sp)
+            Text("RADAR SCOPE", fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = radarGreen, letterSpacing = 2.sp)
             Spacer(Modifier.height(8.dp))
             Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(20.dp))
-                .background(if (isLight) Color(0xFFF0FDF4) else Color(0xFF021708))
+                .background(if (isLight) Color(0xFF001a0a) else Color(0xFF000d05))
             ) {
                 Canvas(Modifier.fillMaxSize()) {
                     val r = size.minDimension / 2f
                     val c = Offset(size.width / 2f, size.height / 2f)
-                    val outer = r * 0.75f
-                    val sweepAlpha = if (isScanning) 1f else 0.15f
+                    val outer = r * 0.85f
+                    val alphaScale = if (isScanning) 1f else 0.10f
+
+                    for (i in 1..4) {
+                        drawCircle(color = radarGreen.copy(alpha = (0.12f + i/4f*0.12f) * alphaScale), radius = outer * (i / 4f), style = Stroke(1.5.dp.toPx()))
+                    }
+                    drawLine(color = radarGreen.copy(alpha = 0.08f * alphaScale), start = Offset(c.x - outer, c.y), end = Offset(c.x + outer, c.y), strokeWidth = 0.5.dp.toPx())
+                    drawLine(color = radarGreen.copy(alpha = 0.08f * alphaScale), start = Offset(c.x, c.y - outer), end = Offset(c.x, c.y + outer), strokeWidth = 0.5.dp.toPx())
+                    val diag = outer * 0.707f
+                    drawLine(radarGreen.copy(alpha = 0.05f * alphaScale), Offset(c.x - diag, c.y - diag), Offset(c.x + diag, c.y + diag), 0.5.dp.toPx())
+                    drawLine(radarGreen.copy(alpha = 0.05f * alphaScale), Offset(c.x + diag, c.y - diag), Offset(c.x - diag, c.y + diag), 0.5.dp.toPx())
+
                     drawIntoCanvas { canvas ->
-                        canvas.save(); canvas.translate(c.x, c.y); canvas.rotate(animatedAngle); drawCircle(brush = sweepBrush, radius = outer, alpha = sweepAlpha); canvas.restore()
+                        canvas.save(); canvas.translate(c.x, c.y); canvas.rotate(animatedAngle); drawCircle(brush = sweepBrush, radius = outer, alpha = alphaScale); canvas.restore()
                     }
                     val aRad = Math.toRadians(animatedAngle.toDouble())
                     val ex = c.x + outer * cos(aRad).toFloat()
                     val ey = c.y + outer * sin(aRad).toFloat()
-                    drawLine(color = Wc.primary.copy(alpha = 0.60f * sweepAlpha), start = c, end = Offset(ex, ey), strokeWidth = 2.5f)
+                    drawLine(color = radarGreen.copy(alpha = 0.65f * alphaScale), start = c, end = Offset(ex, ey), strokeWidth = 2.dp.toPx())
+
+                    drawCircle(color = radarGreen.copy(alpha = 0.8f * alphaScale), radius = 4.dp.toPx())
+                    drawCircle(color = radarGreen.copy(alpha = 0.2f * alphaScale), radius = 6.dp.toPx(), style = Stroke(0.5.dp.toPx()))
+
                     allIps.take(10).forEachIndexed { index, alive ->
                         if (index < dotPositions.size) {
                             val dp = dotPositions[index]
@@ -334,19 +369,19 @@ private fun FullscreenRadarDialog(
                             val distPx = dp.distance * outer * 0.92f
                             val dx = c.x + distPx * cos(daRad).toFloat()
                             val dy = c.y + distPx * sin(daRad).toFloat()
-                            val dotColor = when { alive.ping < 200 -> Wc.successLight; alive.ping < 500 -> Wc.warning; else -> Wc.error }
+                            val dotColor = when { alive.ping < 200 -> radarGreen; alive.ping < 500 -> Color(0xFFFFCC00); else -> Color(0xFFFF4444) }
                             val angleDiff = ((animatedAngle - dp.angle + 720f) % 360f) / 360f
                             val baseAlpha = if (isScanning) {
-                                ((1f - angleDiff * 4f).coerceIn(0f, 1f) + (1f - ((angleDiff - 0.25f) * 2f).coerceIn(0f, 1f)) * 0.3f)
-                            } else 0.2f
+                                ((1f - angleDiff * 4f).coerceIn(0f, 1f) + (1f - ((angleDiff - 0.25f) * 2f).coerceIn(0f, 1f)) * 0.2f)
+                            } else 0.15f
                             val alpha = baseAlpha.coerceIn(0.05f, 1f)
-                            drawCircle(color = dotColor.copy(alpha = 0.25f * alpha), radius = 8.dp.toPx(), center = Offset(dx, dy))
-                            drawCircle(color = dotColor.copy(alpha = alpha), radius = 4.dp.toPx(), center = Offset(dx, dy))
+                            drawCircle(color = dotColor.copy(alpha = 0.3f * alpha), radius = 7.dp.toPx(), center = Offset(dx, dy), style = Stroke(1.dp.toPx()))
+                            drawCircle(color = dotColor.copy(alpha = alpha), radius = 3.5f.dp.toPx(), center = Offset(dx, dy))
                             val paint = android.graphics.Paint().apply {
-                                color = android.graphics.Color.argb((alpha.coerceIn(0.3f, 1f) * 255).toInt(), 255, 255, 255)
-                                textSize = 26f; textAlign = android.graphics.Paint.Align.CENTER; isAntiAlias = true
+                                color = android.graphics.Color.argb((alpha.coerceIn(0.4f, 1f) * 255).toInt(), 0, 255, 102)
+                                textSize = 24f; textAlign = android.graphics.Paint.Align.CENTER; isAntiAlias = true
                             }
-                            drawContext.canvas.nativeCanvas.drawText("${alive.ping}ms", dx, dy - 12.dp.toPx(), paint)
+                            drawContext.canvas.nativeCanvas.drawText("${alive.ping}ms", dx, dy - 10.dp.toPx(), paint)
                         }
                     }
                 }
@@ -369,7 +404,6 @@ private fun FullscreenRadarDialog(
 }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ResultsTab(
     viewModel: NovaRadarViewModel, isScanning: Boolean, aliveCount: Int, allIps: List<AliveIp>,
@@ -381,44 +415,46 @@ private fun ResultsTab(
     cfgSecurity: String, onCfgSecurity: (String) -> Unit,
     cfgPath: String, onCfgPath: (String) -> Unit
 ) {
-    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val speedResults by viewModel.speedResults.collectAsState()
+
+    LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Header
         item {
-            WidgetCard(isLightTheme = isLight) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(8.dp).clip(CircleShape).background(if (isScanning) Wc.warning else if (allIps.isNotEmpty()) Wc.success else Wc.error.copy(alpha = 0.4f)))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(if (isScanning) Wc.warning else if (allIps.isNotEmpty()) Wc.success else Color.Gray.copy(alpha = 0.3f)))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (isScanning) "SCANNING..." else if (allIps.isNotEmpty()) "${allIps.size} TARGETS" else "NO TARGETS",
+                        fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
+                        color = if (isLight) Color(0xFF1A202C) else Wc.onSurfaceDark
+                    )
+                    if (allIps.isNotEmpty()) {
                         Spacer(Modifier.width(6.dp))
-                        Text(
-                            if (isScanning) "SCANNING..." else if (allIps.isNotEmpty()) "${allIps.size} TARGETS" else "NO TARGETS",
-                            fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
-                            color = if (isScanning) Wc.warning else if (allIps.isNotEmpty()) Wc.success else Wc.error.copy(alpha = 0.5f)
-                        )
-                        if (allIps.isNotEmpty()) {
-                            Spacer(Modifier.width(8.dp))
-                            Text("Ø${allIps.map { it.ping }.average().toLong()}ms", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = Wc.primary.copy(alpha = 0.6f))
-                        }
+                        Text("Ø${allIps.map { it.ping }.average().toLong()}ms", fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = if (isLight) Color(0xFF4A5568) else Color.Gray)
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                        IconButton(onClick = { viewModel.copyAllToClipboard(context) }, modifier = Modifier.size(28.dp)) {
-                            Icon(Icons.Default.ContentCopy, null, tint = Wc.primary, modifier = Modifier.size(16.dp))
-                        }
-                        IconButton(onClick = { viewModel.exportResultsToTxtFile(context) }, modifier = Modifier.size(28.dp)) {
-                            Icon(Icons.Default.Save, null, tint = Wc.primary, modifier = Modifier.size(16.dp))
-                        }
-                        IconButton(onClick = { onShowConfigBuilder(true) }, modifier = Modifier.size(28.dp)) {
-                            Icon(Icons.Default.Build, null, tint = Wc.primary, modifier = Modifier.size(16.dp))
-                        }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    IconButton(onClick = { viewModel.copyAllToClipboard(context) }, modifier = Modifier.size(26.dp)) {
+                        Icon(Icons.Default.ContentCopy, null, tint = Wc.primary, modifier = Modifier.size(14.dp))
+                    }
+                    IconButton(onClick = { viewModel.exportResultsToTxtFile(context) }, modifier = Modifier.size(26.dp)) {
+                        Icon(Icons.Default.Save, null, tint = Wc.primary, modifier = Modifier.size(14.dp))
+                    }
+                    IconButton(onClick = { onShowConfigBuilder(true) }, modifier = Modifier.size(26.dp)) {
+                        Icon(Icons.Default.Build, null, tint = Wc.primary, modifier = Modifier.size(14.dp))
                     }
                 }
             }
         }
 
+        // Export format row
         if (allIps.isNotEmpty()) {
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    listOf("Clash" to { viewModel.exportClash(context) }, "V2Ray" to { viewModel.exportV2Ray(context) }, "VLESS" to { viewModel.exportVLESS(context) }, "Sing-Box" to { viewModel.exportSingBox(context) }).forEach { (label, action) ->
-                        Box(Modifier.weight(1f).height(32.dp).clip(RoundedCornerShape(8.dp)).background(Wc.primary.copy(alpha = 0.1f)).border(0.5.dp, Wc.primary.copy(alpha = 0.25f), RoundedCornerShape(8.dp)).clickable(remember { MutableInteractionSource() }, null, onClick = action), contentAlignment = Alignment.Center) {
-                            Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Wc.primary)
+                    listOf("Clash" to { viewModel.exportClash(context) }, "V2Ray" to { viewModel.exportV2Ray(context) }, "VLESS" to { viewModel.exportVLESS(context) }, "SingBox" to { viewModel.exportSingBox(context) }).forEach { (label, action) ->
+                        Box(Modifier.weight(1f).height(28.dp).clip(RoundedCornerShape(6.dp)).background(Wc.primary.copy(alpha = 0.08f)).border(0.5.dp, Wc.primary.copy(alpha = 0.2f), RoundedCornerShape(6.dp)).clickable(remember { MutableInteractionSource() }, null, onClick = action), contentAlignment = Alignment.Center) {
+                            Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Wc.primary)
                         }
                     }
                 }
@@ -427,62 +463,71 @@ private fun ResultsTab(
 
         if (allIps.isEmpty()) {
             item {
-                Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(if (isScanning) "AWAITING TARGETS" else "NO TARGETS", fontSize = 14.sp, fontFamily = FontFamily.Monospace, color = (if (isScanning) Wc.warning else Wc.error).copy(alpha = 0.5f))
-                        Spacer(Modifier.height(6.dp))
-                        Text(if (isScanning) "IPs appear as verified" else "Start a scan", fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Color.Gray.copy(alpha = 0.5f))
+                        Text(if (isScanning) "AWAITING TARGETS" else "NO TARGETS", fontSize = 13.sp, fontFamily = FontFamily.Monospace, color = (if (isScanning) Wc.warning else Wc.error).copy(alpha = 0.5f))
+                        Spacer(Modifier.height(4.dp))
+                        Text(if (isScanning) "IPs appear as verified" else "Start a scan", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = Color.Gray.copy(alpha = 0.4f))
                     }
                 }
             }
         } else {
+            // Compact list-style header
+            item {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(if (isLight) Color(0xFFEDF2F7) else Color(0xFF1C2333)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    Text("#", Modifier.width(22.dp), fontSize = 7.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (isLight) Color(0xFF4A5568) else Color.Gray)
+                    Text("IP", Modifier.weight(1f), fontSize = 7.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (isLight) Color(0xFF4A5568) else Color.Gray)
+                    Text("PING", Modifier.width(34.dp), fontSize = 7.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (isLight) Color(0xFF4A5568) else Color.Gray)
+                    Text("HTTP", Modifier.width(30.dp), fontSize = 7.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (isLight) Color(0xFF4A5568) else Color.Gray)
+                    Text("SPD", Modifier.width(28.dp), fontSize = 7.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (isLight) Color(0xFF4A5568) else Color.Gray)
+                    Text("ACT", Modifier.width(48.dp), fontSize = 7.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (isLight) Color(0xFF4A5568) else Color.Gray)
+                }
+            }
+
             itemsIndexed(allIps, key = { _, ip -> "${ip.ip}:${ip.port}" }) { index, alive ->
                 val speedKey = "${alive.ip}:${alive.port}"
-                val speedStr = viewModel.speedResults.value[speedKey] ?: "--"
+                val speedStr = speedResults[speedKey] ?: "--"
                 val pingColor = when { alive.ping < 200 -> Wc.success; alive.ping < 500 -> Wc.warning; else -> Wc.error }
-                WidgetCard(isLightTheme = isLight, modifier = Modifier.fillMaxWidth().animateItemPlacement()) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("#${index + 1}", Modifier.width(28.dp), fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Color.Gray)
-                        Column(Modifier.weight(1f)) {
-                            Text(alive.ip, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (isLight) Color(0xFF1A202C) else Color(0xFFE8ECF4), maxLines = 1)
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(":${alive.port}", fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = Wc.primary.copy(alpha = 0.5f))
-                                if (alive.port in tlsPorts) {
-                                    Box(Modifier.clip(RoundedCornerShape(3.dp)).background(Wc.primary.copy(alpha = 0.1f)).padding(horizontal = 4.dp, vertical = 1.dp)) {
-                                        Text("TLS", fontSize = 7.sp, fontWeight = FontWeight.Bold, color = Wc.primary.copy(alpha = 0.7f))
+                val httpColor = when { alive.httpPing < 0 -> Color.Gray.copy(alpha = 0.3f); alive.httpPing < 300 -> Wc.success; alive.httpPing < 600 -> Wc.warning; else -> Wc.error }
+
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (index % 2 == 0) Color.Transparent else (if (isLight) Color(0xFFF7FAFC) else Color(0xFF111827).copy(alpha = 0.3f))).padding(horizontal = 6.dp, vertical = 4.dp)) {
+                    Column {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("${index + 1}", Modifier.width(22.dp), fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = if (isLight) Color(0xFF718096) else Color.Gray.copy(alpha = 0.6f))
+                            Column(Modifier.weight(1f)) {
+                                Text(alive.ip, fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (isLight) Color(0xFF1A202C) else Color(0xFFE8ECF4), maxLines = 1)
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text(":${alive.port}", fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = Wc.primary.copy(alpha = 0.5f))
+                                    if (alive.port in tlsPorts) {
+                                        Box(Modifier.clip(RoundedCornerShape(2.dp)).background(Wc.primary.copy(alpha = 0.1f)).padding(horizontal = 3.dp, vertical = 1.dp)) {
+                                            Text("TLS", fontSize = 6.sp, fontWeight = FontWeight.Bold, color = Wc.primary.copy(alpha = 0.7f))
+                                        }
                                     }
                                 }
-                                Text("Nova#${alive.novaId}", fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = Color.Gray.copy(alpha = 0.5f))
+                            }
+                            Text("${alive.ping}", Modifier.width(34.dp), fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = pingColor)
+                            Text(if (alive.httpPing > 0) "${alive.httpPing}" else "--", Modifier.width(30.dp), fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = httpColor)
+                            Text(speedStr, Modifier.width(28.dp), fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = Wc.warning.copy(alpha = 0.8f))
+
+                            Row(Modifier.width(48.dp), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                // ⚡ Speed test button
+                                Box(Modifier.size(22.dp).clip(RoundedCornerShape(4.dp)).background(Wc.info.copy(alpha = 0.12f)).clickable(remember { MutableInteractionSource() }, null) {
+                                    viewModel.runSpeedTest(alive.ip, alive.port)
+                                }, contentAlignment = Alignment.Center) {
+                                    Text("⚡", fontSize = 9.sp)
+                                }
+                                // Copy button
+                                Box(Modifier.size(22.dp).clip(RoundedCornerShape(4.dp)).background(Wc.success.copy(alpha = 0.12f)).clickable(remember { MutableInteractionSource() }, null) {
+                                    viewModel.copyIndividualToClipboard(context, alive)
+                                }, contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.ContentCopy, null, tint = Wc.success, modifier = Modifier.size(10.dp))
+                                }
                             }
                         }
-                        Spacer(Modifier.width(4.dp))
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("${alive.ping}", fontSize = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = pingColor)
-                            Text("ms", fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = pingColor.copy(alpha = 0.5f))
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(Modifier.size(26.dp).clip(RoundedCornerShape(6.dp)).background(Wc.info.copy(alpha = 0.12f)).clickable(remember { MutableInteractionSource() }, null) { viewModel.runSpeedTest(alive.ip, alive.port) }, contentAlignment = Alignment.Center) {
-                                Text("⚡", fontSize = 10.sp)
-                            }
-                            Text(speedStr, fontSize = 6.sp, fontFamily = FontFamily.Monospace, color = Wc.warning.copy(alpha = 0.7f))
-                        }
-                        Spacer(Modifier.width(4.dp))
-                        Box(Modifier.size(26.dp).clip(RoundedCornerShape(6.dp)).background(Wc.success.copy(alpha = 0.12f)).clickable(remember { MutableInteractionSource() }, null) { viewModel.copyIndividualToClipboard(context, alive) }, contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.ContentCopy, null, tint = Wc.success, modifier = Modifier.size(12.dp))
-                        }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("HTTP", fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = Color.Gray)
-                        Spacer(Modifier.width(4.dp))
-                        val httpStr = if (alive.httpPing > 0) "${alive.httpPing}ms" else "--"
-                        val httpColor = when { alive.httpPing < 0 -> Color.Gray.copy(alpha = 0.3f); alive.httpPing < 300 -> Wc.success; alive.httpPing < 600 -> Wc.warning; else -> Wc.error }
-                        Text(httpStr, fontSize = 8.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = httpColor)
-                        Spacer(Modifier.width(12.dp))
-                        Box(Modifier.height(2.dp).weight(1f).clip(RoundedCornerShape(1.dp)).background(Color.Gray.copy(alpha = 0.1f))) {
+                        // Ping latency bar
+                        Box(Modifier.fillMaxWidth().padding(start = 22.dp).height(1.dp)) {
                             val bw = (1f - (alive.ping.coerceAtMost(1000).toFloat() / 1000f)).coerceIn(0.02f, 0.98f)
-                            Box(Modifier.fillMaxWidth(bw).fillMaxHeight().background(pingColor.copy(alpha = 0.4f)))
+                            Box(Modifier.fillMaxWidth(bw).fillMaxHeight().background(pingColor.copy(alpha = 0.3f)))
                         }
                     }
                 }
