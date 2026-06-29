@@ -357,4 +357,29 @@ App flagged as "Harmful app" by Google Play Protect on sideloaded devices.
 
 ---
 
+## 17. Automated Release Pipeline
+
+### One-Click Release
+1. Go to GitHub → **Actions** → **Release Pipeline**
+2. Click **Run workflow**
+3. Choose version type: `patch` / `minor` / `major`
+4. CI auto-bumps `appVersionName` + `versionCode`, creates tag, builds APKs, creates release
+
+### Workflow Files
+- `.github/workflows/android.yml` — full pipeline (version bump + build + release + upstream PR)
+- `.github/workflows/auto-upstream-pr.yml` — upstream PR only (triggered by release publish)
+
+### Keystore (CI)
+- Stored as GitHub secret `KEYSTORE_B64` (base64-encoded `.jks`)
+- Fallback: auto-generated temporary keystore if secret missing
+- Run `pwsh scripts/setup-secrets.ps1` to upload
+
+### Manual Tag (alternative to workflow_dispatch)
+```bash
+git tag -a vX.X.X -m "vX.X.X"
+git push origin vX.X.X
+```
+
+---
+
 *Last updated: 2026-06-29 | Version: 1.3.0*
