@@ -26,6 +26,12 @@ object Wc {
     val surfaceContainerDark = Color(0xFF1C2333)
     val onSurfaceDark = Color(0xFFE8ECF4)
     val onSurfaceVariantDark = Color(0xFF8B95A8)
+    // Light theme explicit colors
+    val lightText = Color(0xFF1A202C)
+    val lightTextSecondary = Color(0xFF4A5568)
+    val lightBg = Color(0xFFF7FAFC)
+    val lightCard = Color.White
+    val lightBorder = Color(0xFFE2E8F0)
 }
 
 @Composable

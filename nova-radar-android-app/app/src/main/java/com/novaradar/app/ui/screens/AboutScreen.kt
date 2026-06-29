@@ -47,7 +47,7 @@ fun AboutScreen(viewModel: NovaRadarViewModel) {
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
     val logs by viewModel.logs.collectAsState()
 
-    Box(Modifier.fillMaxSize().padding(horizontal = 14.dp).padding(bottom = 88.dp)) {
+    Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             WidgetCard(isLightTheme = isLight) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
