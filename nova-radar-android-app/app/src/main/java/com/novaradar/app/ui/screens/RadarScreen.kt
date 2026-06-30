@@ -87,17 +87,22 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
     val isLight = theme == AppTheme.PRISM_LIGHT
     val subPagerState = rememberPagerState(pageCount = { 2 })
 
-    // Network type detection
-    val networkType = remember(context) { viewModel.getNetworkType(context) }
+    // Network type detection + override
+    val detectedNetwork = remember(context) { viewModel.getNetworkType(context) }
+    val networkOverride by viewModel.networkTypeOverride.collectAsState()
+    val networkType = if (networkOverride.isNotEmpty()) networkOverride else detectedNetwork
+    val desktopMode by viewModel.desktopMode.collectAsState()
     var selectedOperator by remember { mutableStateOf("all") }
     val coroutineScope = rememberCoroutineScope()
     var showConfigBuilder by remember { mutableStateOf(false) }
     var showFullscreenRadar by remember { mutableStateOf(false) }
-    var cfgUuid by remember { mutableStateOf("") }
-    var cfgSni by remember { mutableStateOf("nova2.altramax083.workers.dev") }
-    var cfgNetwork by remember { mutableStateOf("ws") }
-    var cfgSecurity by remember { mutableStateOf("tls") }
-    var cfgPath by remember { mutableStateOf("/") }
+    val cfgOutput by viewModel.cfgOutput.collectAsState()
+    val cfgUuid by viewModel.cfgUuid.collectAsState()
+    val cfgSni by viewModel.cfgSni.collectAsState()
+    val cfgNetwork by viewModel.cfgNetwork.collectAsState()
+    val cfgSecurity by viewModel.cfgSecurity.collectAsState()
+    val cfgPath by viewModel.cfgPath.collectAsState()
+    var cfgTab by remember { mutableStateOf("vless") }
 
     val infiniteTransition = rememberInfiniteTransition(label = "sweep")
     val animatedAngle by infiniteTransition.animateFloat(
@@ -170,8 +175,8 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
                 modifier = Modifier.weight(1f).fillMaxWidth()
             ) { page ->
                 when (page) {
-                    0 -> ScannerTab(isScanning, scannedCount, aliveCount, deadCount, eta, subnetScanning, allIps, recentProbes, animatedAngle, sweepBrush, dotPositions, isLight, showFullscreenRadar, { showFullscreenRadar = it }, viewModel, context, networkType, selectedOperator, { selectedOperator = it })
-                    1 -> ResultsTab(viewModel, isScanning, aliveCount, allIps, context, lang, isLight, showConfigBuilder, { showConfigBuilder = it }, cfgUuid, { cfgUuid = it }, cfgSni, { cfgSni = it }, cfgNetwork, { cfgNetwork = it }, cfgSecurity, { cfgSecurity = it }, cfgPath, { cfgPath = it })
+                    0 -> ScannerTab(isScanning, scannedCount, aliveCount, deadCount, eta, subnetScanning, allIps, recentProbes, animatedAngle, sweepBrush, dotPositions, isLight, showFullscreenRadar, { showFullscreenRadar = it }, viewModel, context, networkType, selectedOperator, { selectedOperator = it }, desktopMode, networkOverride)
+                    1 -> ResultsTab(viewModel, isScanning, aliveCount, allIps, context, lang, isLight, showConfigBuilder, { showConfigBuilder = it }, desktopMode)
                 }
             }
         }
@@ -180,6 +185,11 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
     // Fullscreen radar dialog
     if (showFullscreenRadar) {
         FullscreenRadarDialog(allIps, dotPositions, animatedAngle, sweepBrush, isLight, isScanning) { showFullscreenRadar = false }
+    }
+
+    // Config builder dialog
+    if (showConfigBuilder) {
+        ConfigBuilderDialog(viewModel, context, isLight, cfgTab, { cfgTab = it }, allIps) { showConfigBuilder = false }
     }
 }
 
@@ -192,47 +202,85 @@ private fun ScannerTab(
     animatedAngle: Float, sweepBrush: Brush, dotPositions: List<DotPos>,
     isLight: Boolean, showFullscreenRadar: Boolean, onShowFullscreen: (Boolean) -> Unit,
     viewModel: NovaRadarViewModel, context: android.content.Context,
-    networkType: String, selectedOperator: String, onOperatorChange: (String) -> Unit
+    networkType: String, selectedOperator: String, onOperatorChange: (String) -> Unit,
+    desktopMode: Boolean, networkOverride: String
 ) {
     val lastScanTime by viewModel.lastScanTimestamp.collectAsState()
+    val selectedTheme by viewModel.selectedTheme.collectAsState()
 
     Column(
         Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // Network status bar
+        // WiFiSet-style status dashboard header
         Box(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                .background(if (isLight) Color.White.copy(alpha = 0.5f) else Color(0xFF0D1219).copy(alpha = 0.5f))
-                .border(0.5.dp, Wc.primary.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
-                .padding(horizontal = 10.dp, vertical = 5.dp)
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                .background(if (isLight) Color(0xFFF0F5FF).copy(alpha = 0.7f) else Color(0xFF0D1628).copy(alpha = 0.8f))
+                .border(0.5.dp, Wc.primary.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                .padding(horizontal = 10.dp, vertical = 6.dp)
         ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Box(Modifier.size(6.dp).clip(CircleShape).background(if (isScanning) Wc.success else Wc.success.copy(alpha = 0.3f)))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                // Status indicator
+                Box(Modifier.size(8.dp).clip(CircleShape).background(
+                    when {
+                        isScanning -> Color(0xFF10B981)
+                        allIps.isNotEmpty() -> Color(0xFF3B82F6)
+                        else -> Color.Gray.copy(alpha = 0.4f)
+                    }
+                ))
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
                     Text(
-                        if (isScanning) subnetScanning.ifEmpty { "SCANNING..." } else "STANDBY",
-                        fontFamily = FontFamily.Monospace, fontSize = 8.sp,
-                        color = (if (isScanning) Wc.success else Wc.successLight).copy(alpha = 0.8f)
+                        if (isScanning) "SCAN ACTIVE" else if (allIps.isNotEmpty()) "${allIps.size} IPS READY" else "SCANNER STANDBY",
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
+                        color = if (isLight) Color(0xFF1A202C) else Wc.onSurfaceDark
                     )
+                    Text(subnetScanning.ifEmpty { if (isScanning) "Initializing..." else "Idle" },
+                        fontSize = 7.sp, fontFamily = FontFamily.Monospace,
+                        color = if (isLight) Color(0xFF4A5568) else Color(0xFF8B95A8))
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                // ETA badge
+                if (isScanning) {
+                    Box(Modifier.clip(RoundedCornerShape(4.dp)).background(Wc.warning.copy(alpha = 0.12f)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                        Text("ETA $eta", fontSize = 8.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Wc.warning)
+                    }
+                    Spacer(Modifier.width(4.dp))
+                }
+                // Network type badge with manual override
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     val netColor = when (networkType) {
-                        "WiFi" -> Color(0xFF3B82F6)
-                        "5G" -> Color(0xFF10B981)
-                        "4G" -> Color(0xFF8B5CF6)
+                        "WiFi" -> Color(0xFF3B82F6); "5G" -> Color(0xFF10B981); "4G" -> Color(0xFF8B5CF6)
                         else -> Color.Gray
                     }
-                    Box(Modifier.clip(RoundedCornerShape(4.dp)).background(netColor.copy(alpha = 0.12f)).padding(horizontal = 5.dp, vertical = 1.dp)) {
+                    Box(Modifier.clip(RoundedCornerShape(4.dp)).background(netColor.copy(alpha = 0.12f)).padding(horizontal = 5.dp, vertical = 2.dp)) {
                         Text(networkType, fontSize = 7.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = netColor)
                     }
-                    Text("ETA $eta", fontFamily = FontFamily.Monospace, fontSize = 8.sp, color = Wc.warning.copy(alpha = 0.7f))
+                }
+                Spacer(Modifier.width(4.dp))
+                // Desktop mode toggle
+                Box(Modifier.size(24.dp).clip(RoundedCornerShape(4.dp)).background(if (desktopMode) Wc.primary.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.08f)).clickable(remember { MutableInteractionSource() }, null) { viewModel.toggleDesktopMode() }, contentAlignment = Alignment.Center) {
+                    Text(if (desktopMode) "⊞" else "⊟", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (desktopMode) Wc.primary else Color.Gray.copy(alpha = 0.5f))
+                }
+            }
+        }
+
+        // Network type manual selector row
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            listOf("Auto" to "", "4G" to "4G", "5G" to "5G", "WiFi" to "WiFi").forEach { (label, key) ->
+                val active = networkOverride == key
+                Box(Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
+                    .background(if (active) Wc.primary.copy(alpha = 0.12f) else Color.Transparent)
+                    .border(0.5.dp, if (active) Wc.primary.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.08f), RoundedCornerShape(6.dp))
+                    .clickable(remember { MutableInteractionSource() }, null) { viewModel.setNetworkTypeOverride(key) }
+                    .padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                    Text(label, fontSize = 7.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
+                        color = if (active) Wc.primary else Color.Gray.copy(alpha = 0.4f))
                 }
             }
         }
 
         // Top row: compact radar + stat boxes side by side
-        Row(Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth().height(if (desktopMode) 160.dp else 120.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             // Compact radar
             WidgetCard(isLightTheme = isLight, borderColor = Wc.primary.copy(alpha = 0.12f), modifier = Modifier.weight(1f).fillMaxHeight()) {
                 Box(
@@ -476,9 +524,137 @@ private fun FullscreenRadarDialog(
                     Text("${alive.ping}ms", fontSize = 8.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = col)
                 }
             }
+            }
         }
     }
 }
+
+@Composable
+private fun ConfigBuilderDialog(
+    viewModel: NovaRadarViewModel, context: android.content.Context, isLight: Boolean,
+    cfgTab: String, onCfgTab: (String) -> Unit, allIps: List<AliveIp>,
+    onDismiss: () -> Unit
+) {
+    val cfgOutput by viewModel.cfgOutput.collectAsState()
+    val cfgUuid by viewModel.cfgUuid.collectAsState()
+    val cfgSni by viewModel.cfgSni.collectAsState()
+    val cfgNetwork by viewModel.cfgNetwork.collectAsState()
+    val cfgSecurity by viewModel.cfgSecurity.collectAsState()
+    val cfgPath by viewModel.cfgPath.collectAsState()
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = if (isLight) Color(0xFFF8FAFC) else Color(0xFF0D1219))
+        ) {
+            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Title
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("CONFIG BUILDER", fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Wc.primary, letterSpacing = 1.sp)
+                    TextButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, null, tint = Color.Gray, modifier = Modifier.size(18.dp))
+                    }
+                }
+
+                // Tab row
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("vless" to "VLESS", "vmess" to "VMess", "clash" to "Clash", "singbox" to "SingBox").forEach { (key, label) ->
+                        val active = cfgTab == key
+                        Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                            .background(if (active) Wc.primary.copy(alpha = 0.12f) else Color.Transparent)
+                            .border(0.5.dp, if (active) Wc.primary.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                            .clickable(remember { MutableInteractionSource() }, null) { onCfgTab(key) }
+                            .padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                            Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
+                                color = if (active) Wc.primary else Color.Gray.copy(alpha = 0.5f))
+                        }
+                    }
+                }
+
+                // Config fields
+                WidgetCard(isLightTheme = isLight, borderColor = Wc.primary.copy(alpha = 0.08f)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("UUID", Modifier.width(50.dp), fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Wc.primary)
+                            OutlinedTextField(value = cfgUuid, onValueChange = { viewModel.setCfgUuid(it) }, modifier = Modifier.weight(1f), singleLine = true, textStyle = LocalTextStyle.current.copy(fontSize = 9.sp, fontFamily = FontFamily.Monospace))
+                            Box(Modifier.size(28.dp).clip(RoundedCornerShape(4.dp)).background(Wc.primary.copy(alpha = 0.1f)).clickable(remember { MutableInteractionSource() }, null) { viewModel.generateUuid() }, contentAlignment = Alignment.Center) {
+                                Text("↻", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Wc.primary)
+                            }
+                        }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("SNI", Modifier.width(50.dp), fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Wc.primary)
+                            OutlinedTextField(value = cfgSni, onValueChange = { viewModel.setCfgSni(it) }, modifier = Modifier.weight(1f), singleLine = true, textStyle = LocalTextStyle.current.copy(fontSize = 9.sp, fontFamily = FontFamily.Monospace))
+                        }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Net", Modifier.width(50.dp), fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Wc.primary)
+                            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                listOf("ws", "tcp", "grpc", "h2").forEach { n ->
+                                    val a = cfgNetwork == n
+                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(4.dp))
+                                        .background(if (a) Wc.primary.copy(alpha = 0.12f) else Color.Transparent)
+                                        .border(0.5.dp, if (a) Wc.primary.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
+                                        .clickable(remember { MutableInteractionSource() }, null) { viewModel.setCfgNetwork(n) }
+                                        .padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                                        Text(n, fontSize = 7.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = if (a) Wc.primary else Color.Gray.copy(alpha = 0.4f))
+                                    }
+                                }
+                            }
+                        }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Sec", Modifier.width(50.dp), fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Wc.primary)
+                            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                listOf("tls", "none").forEach { s ->
+                                    val a = cfgSecurity == s
+                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(4.dp))
+                                        .background(if (a) Wc.primary.copy(alpha = 0.12f) else Color.Transparent)
+                                        .border(0.5.dp, if (a) Wc.primary.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
+                                        .clickable(remember { MutableInteractionSource() }, null) { viewModel.setCfgSecurity(s) }
+                                        .padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                                        Text(s, fontSize = 7.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = if (a) Wc.primary else Color.Gray.copy(alpha = 0.4f))
+                                    }
+                                }
+                            }
+                        }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Path", Modifier.width(50.dp), fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Wc.primary)
+                            OutlinedTextField(value = cfgPath, onValueChange = { viewModel.setCfgPath(it) }, modifier = Modifier.weight(1f), singleLine = true, textStyle = LocalTextStyle.current.copy(fontSize = 9.sp, fontFamily = FontFamily.Monospace))
+                        }
+                    }
+                }
+
+                // Build button
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Wc.primary.copy(alpha = 0.12f)).clickable(remember { MutableInteractionSource() }, null) { viewModel.buildConfig(cfgTab) }.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                    Text("BUILD ${cfgTab.uppercase()} CONFIG", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Wc.primary)
+                }
+
+                // Output display
+                if (cfgOutput.isNotEmpty()) {
+                    WidgetCard(isLightTheme = isLight, borderColor = Wc.success.copy(alpha = 0.12f)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("OUTPUT (${cfgOutput.lines().size} lines)", fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = Wc.success.copy(alpha = 0.6f))
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Box(Modifier.clip(RoundedCornerShape(4.dp)).background(Wc.primary.copy(alpha = 0.1f)).clickable(remember { MutableInteractionSource() }, null) { viewModel.copyCfgOutput(context) }.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Icon(Icons.Default.ContentCopy, null, tint = Wc.primary, modifier = Modifier.size(10.dp))
+                                        Text("Copy", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Wc.primary)
+                                    }
+                                }
+                                Box(Modifier.clip(RoundedCornerShape(4.dp)).background(Wc.success.copy(alpha = 0.1f)).clickable(remember { MutableInteractionSource() }, null) { viewModel.saveCfgToFile(context, "nova-$cfgTab-config.txt") }.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Icon(Icons.Default.Save, null, tint = Wc.success, modifier = Modifier.size(10.dp))
+                                        Text("Save", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = Wc.success)
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(cfgOutput, fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = if (isLight) Color(0xFF1A202C) else Wc.onSurfaceDark.copy(alpha = 0.8f))
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -486,17 +662,20 @@ private fun ResultsTab(
     viewModel: NovaRadarViewModel, isScanning: Boolean, aliveCount: Int, allIps: List<AliveIp>,
     context: android.content.Context, lang: AppLanguage, isLight: Boolean,
     showConfigBuilder: Boolean, onShowConfigBuilder: (Boolean) -> Unit,
-    cfgUuid: String, onCfgUuid: (String) -> Unit,
-    cfgSni: String, onCfgSni: (String) -> Unit,
-    cfgNetwork: String, onCfgNetwork: (String) -> Unit,
-    cfgSecurity: String, onCfgSecurity: (String) -> Unit,
-    cfgPath: String, onCfgPath: (String) -> Unit
+    desktopMode: Boolean
 ) {
     val speedResults by viewModel.speedResults.collectAsState()
     val runningSpeedTests by viewModel.runningSpeedTests.collectAsState()
     val lastScanTime by viewModel.lastScanTimestamp.collectAsState()
+    val cfgOutput by viewModel.cfgOutput.collectAsState()
+    val cfgUuid by viewModel.cfgUuid.collectAsState()
+    val cfgSni by viewModel.cfgSni.collectAsState()
+    val cfgNetwork by viewModel.cfgNetwork.collectAsState()
+    val cfgSecurity by viewModel.cfgSecurity.collectAsState()
+    val cfgPath by viewModel.cfgPath.collectAsState()
     var maxPing by remember { mutableStateOf(9999) }
     var showPingSlider by remember { mutableStateOf(false) }
+    var cfgTab by remember { mutableStateOf("vless") }
 
     val filteredIps = if (maxPing >= 9999) allIps else allIps.filter { it.ping <= maxPing }
 
@@ -560,7 +739,10 @@ private fun ResultsTab(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         listOf("Clash" to { viewModel.exportClash(context) }, "V2Ray" to { viewModel.exportV2Ray(context) }, "VLESS" to { viewModel.exportVLESS(context) }, "SingBox" to { viewModel.exportSingBox(context) }).forEach { (label, action) ->
                             Box(Modifier.weight(1f).height(28.dp).clip(RoundedCornerShape(6.dp)).background(Wc.primary.copy(alpha = 0.08f)).border(0.5.dp, Wc.primary.copy(alpha = 0.2f), RoundedCornerShape(6.dp)).clickable(remember { MutableInteractionSource() }, null, onClick = action), contentAlignment = Alignment.Center) {
-                                Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Wc.primary)
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Wc.primary)
+                                    Icon(Icons.Default.ContentCopy, null, tint = Wc.primary.copy(alpha = 0.5f), modifier = Modifier.size(8.dp))
+                                }
                             }
                         }
                     }
