@@ -4,11 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -17,19 +13,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.Radar
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,17 +29,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.*
-import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.foundation.clickable
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novaradar.app.ui.localization.Localization
 import com.novaradar.app.ui.screens.*
 import com.novaradar.app.ui.theme.NovaRadarTheme
-import com.novaradar.app.ui.viewmodel.AppLanguage
 import com.novaradar.app.ui.viewmodel.AppTheme
 import com.novaradar.app.ui.viewmodel.NovaRadarViewModel
 import kotlinx.coroutines.launch
@@ -100,9 +87,8 @@ class MainActivity : ComponentActivity() {
 fun MainAppLayout(viewModel: NovaRadarViewModel) {
     val lang by viewModel.selectedLanguage.collectAsState()
     val theme by viewModel.selectedTheme.collectAsState()
-    val isLightTheme = theme == AppTheme.PRISM_LIGHT
-    val isDark = !isLightTheme
-    val pagerState = rememberPagerState(initialPage = 2, pageCount = { 5 })
+    val isDark = theme == AppTheme.PRISM_DARK
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 4 })
     val coroutineScope = rememberCoroutineScope()
 
     CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
@@ -111,7 +97,6 @@ fun MainAppLayout(viewModel: NovaRadarViewModel) {
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
-            // Main content pager
             Box(Modifier.weight(1f)) {
                 HorizontalPager(
                     state = pagerState,
@@ -126,17 +111,15 @@ fun MainAppLayout(viewModel: NovaRadarViewModel) {
                             .padding(top = 8.dp)
                     ) {
                         when (page) {
-                            0 -> EasyInstallerScreen(viewModel)
-                            1 -> SettingsScreen(viewModel)
+                            0 -> SettingsScreen(viewModel)
+                            1 -> ImportScreen(viewModel)
                             2 -> RadarScreen(viewModel)
-                            3 -> ImportScreen(viewModel)
-                            4 -> AboutScreen(viewModel)
+                            3 -> AboutScreen(viewModel)
                         }
                     }
                 }
             }
 
-            // Sticky bottom navigation bar
             val isScanning by viewModel.isScanning.collectAsState()
             val pulseAnim by rememberInfiniteTransition().animateFloat(
                 initialValue = 0.3f, targetValue = 1f,
@@ -156,10 +139,9 @@ fun MainAppLayout(viewModel: NovaRadarViewModel) {
                 tonalElevation = 0.dp
             ) {
                 val items = listOf(
-                    NavigationItemData(key = "tab_installer", selectedIcon = Icons.Filled.Download, unselectedIcon = Icons.Outlined.Download),
                     NavigationItemData(key = "tab_settings", selectedIcon = Icons.Filled.Settings, unselectedIcon = Icons.Outlined.Settings),
-                    NavigationItemData(key = "tab_radar", selectedIcon = Icons.Filled.Radar, unselectedIcon = Icons.Outlined.Radar),
                     NavigationItemData(key = "tab_import", selectedIcon = Icons.Filled.Add, unselectedIcon = Icons.Outlined.Add),
+                    NavigationItemData(key = "tab_radar", selectedIcon = Icons.Filled.Radar, unselectedIcon = Icons.Outlined.Radar),
                     NavigationItemData(key = "tab_about", selectedIcon = Icons.Filled.Info, unselectedIcon = Icons.Outlined.Info)
                 )
 

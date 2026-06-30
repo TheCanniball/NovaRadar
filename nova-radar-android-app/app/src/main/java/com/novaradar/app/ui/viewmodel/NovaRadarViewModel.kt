@@ -39,6 +39,13 @@ enum class AppTheme {
     PRISM_LIGHT
 }
 
+enum class RadarScenario(val displayName: String, val description: String) {
+    QUICK("Quick Scan", "Ports 80/443, 64 threads"),
+    DEEP("Deep Scan", "All ports, 100 threads"),
+    SMART("Smart Scan", "Adaptive: quick then deep"),
+    CUSTOM("Custom", "User configured")
+}
+
 enum class AppLanguage {
     EN,
     FA
@@ -99,11 +106,20 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
     private val _recentProbes = MutableStateFlow<List<String>>(emptyList())
     val recentProbes: StateFlow<List<String>> = _recentProbes.asStateFlow()
 
+    // Radar scenario
+    private val _selectedScenario = MutableStateFlow(RadarScenario.QUICK)
+    val selectedScenario: StateFlow<RadarScenario> = _selectedScenario.asStateFlow()
+
+    fun selectScenario(scenario: RadarScenario) {
+        _selectedScenario.value = scenario
+        addToLogs("▸ Scenario changed to ${scenario.displayName}")
+    }
+
     // Config States (stored in memory or easily persistent)
     private val _selectedTheme = MutableStateFlow(AppTheme.PRISM_DARK)
     val selectedTheme: StateFlow<AppTheme> = _selectedTheme.asStateFlow()
 
-    private val _selectedLanguage = MutableStateFlow(AppLanguage.FA)  // Default to Farsi as requested
+    private val _selectedLanguage = MutableStateFlow(AppLanguage.EN)
     val selectedLanguage: StateFlow<AppLanguage> = _selectedLanguage.asStateFlow()
 
     // Alert & Vibration configurations
@@ -175,6 +191,36 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
         } catch (e: Exception) {
             false
         }
+    }
+
+    fun getNetworkType(context: Context): String {
+        return try {
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val activeNetwork = cm.activeNetwork ?: return "Unknown"
+            val caps = cm.getNetworkCapabilities(activeNetwork) ?: return "Unknown"
+            when {
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "WiFi"
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> {
+                    val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? android.telephony.TelephonyManager
+                    when (tm?.dataNetworkType) {
+                        android.telephony.TelephonyManager.NETWORK_TYPE_NR -> "5G"
+                        android.telephony.TelephonyManager.NETWORK_TYPE_LTE -> "4G"
+                        android.telephony.TelephonyManager.NETWORK_TYPE_HSPAP, android.telephony.TelephonyManager.NETWORK_TYPE_HSDPA -> "3G"
+                        else -> "Cellular"
+                    }
+                }
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) -> "Bluetooth"
+                else -> "Unknown"
+            }
+        } catch (e: Exception) { "Unknown" }
+    }
+
+    private val _lastScanTimestamp = MutableStateFlow(0L)
+    val lastScanTimestamp: StateFlow<Long> = _lastScanTimestamp.asStateFlow()
+
+    private fun updateLastScanTime() {
+        _lastScanTimestamp.value = System.currentTimeMillis()
     }
 
     fun exportResultsToTxtFile(context: Context) {
@@ -591,6 +637,7 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
 
         if (activeSources.isEmpty() || activePorts.isEmpty()) {
             _isScanning.value = false
+            updateLastScanTime()
             val msg = if (_selectedLanguage.value == AppLanguage.FA) {
                 "خطا: لطفا حداقل یک منبع آی‌پی و یک پورت فعال را انتخاب کنید."
             } else {
@@ -717,6 +764,7 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
         if (!_isScanning.value) return
         scanJob?.cancel()
         _isScanning.value = false
+        updateLastScanTime()
         _currentScanningSubnet.value = ""
         _etaValue.value = "--:--"
         addToLogs("====== SCAN TERMINATED BY USER ======")
@@ -875,6 +923,7 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
         addToLogs("====== SCAN COMPLETE ======")
         addToLogs("Total Verified: $alive | Failed: $dead")
         _isScanning.value = false
+        updateLastScanTime()
         _currentScanningSubnet.value = ""
         _etaValue.value = "--:--"
         viewModelScope.launch(Dispatchers.Main) {
@@ -1064,6 +1113,20 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
         val clip = ClipData.newPlainText("NovaRadarConfig", item.ip)
         clipboard.setPrimaryClip(clip)
         Toast.makeText(context, if (_selectedLanguage.value == AppLanguage.FA) "کپی شد: ${item.ip}" else "Copied: ${item.ip}", Toast.LENGTH_SHORT).show()
+    }
+
+    fun copyAllIpsOnly(context: Context) {
+        val list = _allAliveIps.value
+        if (list.isEmpty()) return
+        val text = list.joinToString("\n") { it.ip }
+        copyToClipboard(context, text, "IPs")
+    }
+
+    fun copyAllIpsPort(context: Context) {
+        val list = _allAliveIps.value
+        if (list.isEmpty()) return
+        val text = list.joinToString("\n") { "${it.ip}:${it.port}" }
+        copyToClipboard(context, text, "IP:Port")
     }
 
     private fun generateIpsForSubnet(cidrString: String, maxCount: Int): List<String> {

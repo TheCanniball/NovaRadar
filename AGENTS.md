@@ -32,17 +32,23 @@ NovaRadar/
 │   │   ├── build.gradle.kts         # Module build config, version, signing
 │   │   └── src/main/java/com/novaradar/app/
 │   │       ├── MainActivity.kt      # Entry point, sticky bottom nav, pager
-│   │       ├── data/
-│   │       │   ├── dao/             # Room DAOs
-│   │       │   ├── database/        # Room database (version 4, fallbackToDestructiveMigration)
-│   │       │   ├── model/           # IpSource, PortConfig, ScanHistory
-│   │       │   └── repository/      # NovaRadarRepository
-│   │       └── ui/
-│   │           ├── screens/         # RadarScreen, EasyInstallerScreen, SettingsScreen, ImportScreen, AboutScreen
-│   │           ├── components/      # WidgetCard (glass card component)
-│   │           ├── theme/           # Theme, Color, Type (Vazirmatn font)
-│   │           ├── localization/    # Localization (EN/FA)
-│   │           └── viewmodel/       # NovaRadarViewModel (scan engine + all state)
+│   │   ├── proxy/
+│   │   │   ├── TunnelService.kt   # SOCKS5 proxy tunnel → TunnelStats
+│   │   │   ├── LinkParser.kt      # Parse VLESS/VMESS/Trojan/SS links → ProxyNode
+│   │   │   ├── NodeStore.kt       # ProxyNode list + RemoteFeed subscriptions
+│   │   │   ├── RouteGuard.kt      # GeoIP Iran + geosite + ad-block routing
+│   │   │   └── GeoTable.kt        # GeoIP lookup database (RouteDecision, GeoRange)
+│   │   ├── data/
+│   │   │   ├── dao/             # Room DAOs
+│   │   │   ├── database/        # Room database (version 4, fallbackToDestructiveMigration)
+│   │   │   ├── model/           # IpSource, PortConfig, ScanHistory
+│   │   │   └── repository/      # NovaRadarRepository
+│   │   └── ui/
+│   │       ├── screens/         # RadarScreen, SettingsScreen, ImportScreen, AboutScreen, ClientScreen
+│   │       ├── components/      # WidgetCard, ParticleBackground (glass card + animated bg)
+│   │       ├── theme/           # Theme, Color, Type (Vazirmatn font)
+│   │       ├── localization/    # Localization (EN/FA)
+│   │       └── viewmodel/       # NovaRadarViewModel (scan engine + tunnel + all state)
 │   ├── build.gradle.kts             # Project-level
 │   ├── settings.gradle.kts
 │   ├── gradle/libs.versions.toml    # Version catalog
@@ -152,6 +158,8 @@ app/build/outputs/apk/release/NovaRadar-v{version}-{abi}-release.apk
 - **R8 minification MUST stay disabled**
 - **All socket timeouts must be explicit** — no infinite waits
 - **Radar canvas uses `weight(1f)`** — never fixed height
+- **Stat values use `String.format("%5d", ...)`** — prevent box width changes
+- **Spacing between scanner elements**: `Arrangement.spacedBy(8.dp)`
 
 ### IP Sources
 Three groups (stored in Room database: `IpSource` table):
@@ -172,15 +180,14 @@ Three groups (stored in Room database: `IpSource` table):
 
 ## 6. Screens & Navigation
 
-### Tab Structure (HorizontalPager with 5 tabs)
+### Tab Structure (HorizontalPager with 4 tabs)
 
 | Index | Tab | Screen File | Description |
 |-------|-----|-------------|-------------|
-| 0 | EasyInstaller | `EasyInstallerScreen.kt` | Quick setup wizard |
-| 1 | Settings | `SettingsScreen.kt` | IP sources, ports, speed limit slider |
-| 2 | **Radar** | `RadarScreen.kt` | Main scanning UI (Scanner + Results sub-tabs) |
-| 3 | Import | `ImportScreen.kt` | Import IP:port list |
-| 4 | About | `AboutScreen.kt` | App info, credits, terminal log |
+| 0 | Settings | `SettingsScreen.kt` | Client config + IP sources + ports + speed limit |
+| 1 | **Radar** | `RadarScreen.kt` | Main scanning UI (Scanner + Results + Client sub-tabs) |
+| 2 | Import | `ImportScreen.kt` | Import IP:port list |
+| 3 | About | `AboutScreen.kt` | App info, credits, terminal log |
 
 ### Bottom Navigation (MainActivity.kt)
 - **Sticky** at bottom (NOT floating)
@@ -192,6 +199,7 @@ Three groups (stored in Room database: `IpSource` table):
 ### RadarScreen Sub-tabs (inner HorizontalPager)
 - **Scanner Tab**: Green ATC-style radar (square card, circular), HUD line, 4 stat boxes, probe feed, clean found list
 - **Results Tab**: Compact list-style table with all HTML features
+- **Client Tab**: VPN client dashboard (connect/disconnect, traffic, profile management)
 
 ---
 
@@ -351,9 +359,14 @@ App flagged as "Harmful app" by Google Play Protect on sideloaded devices.
 - `vlessSNI = "nova2.altramax083.workers.dev"` — set via `SSLParameters.setServerNames()`, matches Go original
 - Speed test: `runSpeedTest()` function in ViewModel (line ~229), `speedResults` StateFlow
 - Speed limit slider: 1–20 MB/s in SettingsScreen (default 10)
-- Ping filter: not yet implemented (planned for HTML feature port)
-- Copy dropdown per row: IP only / IP:Port (planned)
+- Ping filter slider in ResultsTab header
+- Copy dropdown per row: Copy IP / Copy IP:Port
+- Copy all dropdown: Copy IPs / Copy IP:Port / Copy Full List
+- Rank badges: S(<80ms), A(<200ms), B(<400ms), C(>=400ms)
+- Ping comparison chart showing top 15 IPs as horizontal bars
+- ParticleBackground: animated floating particles in background
 - `coerceAtMost()` used instead of `minOf` (resolves `Unresolved reference` bug with JDK 21 + Gradle 9.x)
+- Proxy package renamed: TunnelService, LinkParser, NodeStore, RouteGuard, GeoTable (no Karing references)
 
 ---
 
@@ -382,4 +395,22 @@ git push origin vX.X.X
 
 ---
 
-*Last updated: 2026-06-29 | Version: 1.3.0*
+## 18. Related Projects
+
+### SuperNova
+- **Repo**: https://github.com/mohammadmehrani/SuperNova (PRIVATE)
+- **Description**: VPN client + Radar IP scanner with VpnService + Xray/sing-box cores
+- **Architecture**: VpnService → Core Engine (Xray/v2fly/sing-box) → Radar Scanner
+- **Status**: Phase 1 - VpnService Core (in development)
+- **Build**: `.\gradlew assembleRelease --no-daemon`
+
+### HyperNova  
+- **Repo**: https://github.com/mohammadmehrani/HyperNova (PRIVATE)
+- **Description**: SuperNova + Network Tools (WiFi Analyzer, Port Scanner, Traceroute, etc.)
+- **Architecture**: Same as SuperNova + Tools layer
+- **Status**: Phase 1 - Base Setup (in development)
+- **Build**: `.\gradlew assembleRelease --no-daemon`
+
+---
+
+*Last updated: 2026-06-30 | Version: 1.3.0 | Pure Radar Scanner Edition*
