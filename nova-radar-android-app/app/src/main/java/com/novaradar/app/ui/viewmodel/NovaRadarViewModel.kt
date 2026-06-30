@@ -490,6 +490,144 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
         Toast.makeText(context, if (_selectedLanguage.value == AppLanguage.FA) "خروجی کپی شد!" else "Output copied!", Toast.LENGTH_SHORT).show()
     }
 
+    // Desktop mode
+    private val _desktopMode = MutableStateFlow(false)
+    val desktopMode: StateFlow<Boolean> = _desktopMode.asStateFlow()
+
+    fun toggleDesktopMode() {
+        _desktopMode.value = !_desktopMode.value
+    }
+
+    // Network type manual override
+    private val _networkTypeOverride = MutableStateFlow("")
+    val networkTypeOverride: StateFlow<String> = _networkTypeOverride.asStateFlow()
+
+    fun setNetworkTypeOverride(type: String) {
+        _networkTypeOverride.value = if (_networkTypeOverride.value == type) "" else type
+    }
+
+    // Config builder state
+    private val _cfgUuid = MutableStateFlow("")
+    val cfgUuid: StateFlow<String> = _cfgUuid.asStateFlow()
+    fun setCfgUuid(v: String) { _cfgUuid.value = v }
+    fun generateUuid(): String {
+        val uuid = java.util.UUID.randomUUID().toString()
+        _cfgUuid.value = uuid
+        return uuid
+    }
+
+    private val _cfgSni = MutableStateFlow("nova2.altramax083.workers.dev")
+    val cfgSni: StateFlow<String> = _cfgSni.asStateFlow()
+    fun setCfgSni(v: String) { _cfgSni.value = v }
+
+    private val _cfgNetwork = MutableStateFlow("ws")
+    val cfgNetwork: StateFlow<String> = _cfgNetwork.asStateFlow()
+    fun setCfgNetwork(v: String) { _cfgNetwork.value = v }
+
+    private val _cfgSecurity = MutableStateFlow("tls")
+    val cfgSecurity: StateFlow<String> = _cfgSecurity.asStateFlow()
+    fun setCfgSecurity(v: String) { _cfgSecurity.value = v }
+
+    private val _cfgPath = MutableStateFlow("/")
+    val cfgPath: StateFlow<String> = _cfgPath.asStateFlow()
+    fun setCfgPath(v: String) { _cfgPath.value = v }
+
+    private val _cfgOutput = MutableStateFlow("")
+    val cfgOutput: StateFlow<String> = _cfgOutput.asStateFlow()
+
+    fun buildConfig(tab: String) {
+        val list = _allAliveIps.value
+        if (list.isEmpty()) { _cfgOutput.value = "No IPs to build config for."; return }
+        val uuid = _cfgUuid.value.ifEmpty { "00000000-0000-0000-0000-000000000000" }
+        val sni = _cfgSni.value.ifEmpty { "cloudflare.com" }
+        val network = _cfgNetwork.value
+        val security = _cfgSecurity.value
+        val path = _cfgPath.value.ifEmpty { "/" }
+
+        val output = when (tab) {
+            "vless" -> list.joinToString("\n") { "vless://$uuid@${it.ip}:${it.port}?encryption=none&security=$security&sni=$sni&type=$network&path=${java.net.URLEncoder.encode(path, "UTF-8")}#CF-${it.novaId}" }
+            "vmess" -> list.joinToString("\n") { ip ->
+                val obj = org.json.JSONObject().apply {
+                    put("v", "2"); put("ps", "CF-${ip.novaId}")
+                    put("add", ip.ip); put("port", ip.port.toString())
+                    put("id", uuid); put("aid", "0"); put("scy", "auto")
+                    put("net", network); put("type", "none"); put("host", sni)
+                    put("path", path); put("tls", security); put("sni", sni)
+                }
+                "vmess://${android.util.Base64.encodeToString(obj.toString().toByteArray(), android.util.Base64.NO_WRAP)}"
+            }
+            "clash" -> {
+                val proxies = list.joinToString("\n") {
+                    "  - name: CF-${it.novaId}\n" +
+                    "    type: vless\n    server: ${it.ip}\n    port: ${it.port}\n" +
+                    "    uuid: $uuid\n    tls: ${security == "tls"}\n    servername: $sni\n" +
+                    "    network: $network\n    ws-opts:\n      path: $path\n      headers:\n        Host: $sni"
+                }
+                val names = list.joinToString("\n      - ") { "CF-${it.novaId}" }
+                "proxies:\n$proxies\n\nproxy-groups:\n  - name: \"Auto\"\n    type: url-test\n    proxies:\n      - $names\n    url: http://www.gstatic.com/generate_204\n    interval: 300\n\nrules:\n  - GEOIP,IR,DIRECT\n  - MATCH,Auto"
+            }
+            "singbox" -> {
+                val outboundsArr = org.json.JSONArray()
+                list.forEach {
+                    val o = org.json.JSONObject()
+                    o.put("type", "vless"); o.put("tag", "cf-${it.novaId}")
+                    o.put("server", it.ip); o.put("server_port", it.port)
+                    o.put("uuid", uuid)
+                    val tls = org.json.JSONObject(); tls.put("enabled", security == "tls"); tls.put("server_name", sni)
+                    o.put("tls", tls)
+                    val trans = org.json.JSONObject(); trans.put("type", network); trans.put("path", path)
+                    o.put("transport", trans)
+                    outboundsArr.put(o)
+                }
+                val auto = org.json.JSONObject()
+                auto.put("type", "urltest"); auto.put("tag", "auto")
+                val tags = org.json.JSONArray()
+                list.forEach { tags.put("cf-${it.novaId}") }
+                auto.put("outbounds", tags); auto.put("url", "http://www.gstatic.com/generate_204"); auto.put("interval", "5m")
+                outboundsArr.put(auto)
+                val root = org.json.JSONObject()
+                val inbound = org.json.JSONObject()
+                inbound.put("type", "socks"); inbound.put("tag", "socks-in")
+                inbound.put("listen", "127.0.0.1"); inbound.put("listen_port", 2080)
+                root.put("inbounds", org.json.JSONArray().put(inbound))
+                root.put("outbounds", outboundsArr)
+                root.toString(2)
+            }
+            else -> ""
+        }
+        _cfgOutput.value = output
+    }
+
+    fun copyCfgOutput(context: Context) {
+        val text = _cfgOutput.value
+        if (text.isEmpty()) return
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("NovaRadarConfig", text))
+        Toast.makeText(context, "Config copied to clipboard!", Toast.LENGTH_SHORT).show()
+    }
+
+    fun saveCfgToFile(context: Context, filename: String) {
+        val text = _cfgOutput.value
+        if (text.isEmpty()) return
+        try {
+            val resolver = context.contentResolver
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+            }
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+            if (uri != null) {
+                resolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
+                Toast.makeText(context, "Saved $filename to Downloads", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(context, "Save failed: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // HTML scanner operator sources
     private val operatorRanges = mapOf(
         "all" to listOf("172.64.0.0/13", "104.16.0.0/12", "162.159.0.0/16", "108.162.192.0/18"),
