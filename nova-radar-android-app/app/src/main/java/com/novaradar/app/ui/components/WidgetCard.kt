@@ -21,15 +21,14 @@ object Wc {
     val warning = Color(0xFFF59E0B)
     val error = Color(0xFFEF4444)
     val info = Color(0xFF3B82F6)
-    val surfaceDark = Color(0xFF0D1219)
-    val surfaceVariantDark = Color(0xFF161D2A)
-    val surfaceContainerDark = Color(0xFF1C2333)
-    val onSurfaceDark = Color(0xFFE8ECF4)
-    val onSurfaceVariantDark = Color(0xFF8B95A8)
-    // Light theme explicit colors
-    val lightText = Color(0xFF1A202C)
-    val lightTextSecondary = Color(0xFF4A5568)
-    val lightBg = Color(0xFFF7FAFC)
+    val surfaceDark = Color(0xFF0A0E1A)
+    val surfaceVariantDark = Color(0xFF151B2D)
+    val surfaceContainerDark = Color(0xFF1E2740)
+    val onSurfaceDark = Color(0xFFE8EDF5)
+    val onSurfaceVariantDark = Color(0xFF8892A8)
+    val lightText = Color(0xFF1E293B)
+    val lightTextSecondary = Color(0xFF64748B)
+    val lightBg = Color(0xFFF5F7FA)
     val lightCard = Color.White
     val lightBorder = Color(0xFFE2E8F0)
 }

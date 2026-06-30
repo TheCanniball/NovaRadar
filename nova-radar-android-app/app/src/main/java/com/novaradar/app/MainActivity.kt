@@ -1,5 +1,6 @@
 package com.novaradar.app
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -49,6 +50,9 @@ class MainActivity : ComponentActivity() {
             val theme by viewModel.selectedTheme.collectAsState()
             val lang by viewModel.selectedLanguage.collectAsState()
 
+            val prefs = remember { this.getSharedPreferences("nova_radar_prefs", Context.MODE_PRIVATE) }
+            var showWizard by remember { mutableStateOf(prefs.getBoolean("first_launch", true)) }
+
             NovaRadarTheme(theme = theme) {
                 val view = androidx.compose.ui.platform.LocalView.current
                 val isLightTheme = theme == AppTheme.PRISM_LIGHT
@@ -77,6 +81,13 @@ class MainActivity : ComponentActivity() {
                         .background(meshGradient)
                 ) {
                     MainAppLayout(viewModel)
+                }
+
+                if (showWizard) {
+                    WelcomeWizard(onDismiss = {
+                        showWizard = false
+                        prefs.edit().putBoolean("first_launch", false).apply()
+                    })
                 }
             }
         }
@@ -129,13 +140,13 @@ fun MainAppLayout(viewModel: NovaRadarViewModel) {
             NavigationBar(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp)
+                    .height(72.dp)
                     .border(
                         width = 0.5.dp,
                         color = if (isDark) Color(0xFF2D3A5C).copy(alpha = 0.3f) else Color(0xFFCBD5E1).copy(alpha = 0.3f),
                         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
                     ),
-                containerColor = if (isDark) Color(0xFF0D1219).copy(alpha = 0.95f) else Color.White.copy(alpha = 0.95f),
+                containerColor = if (isDark) Color(0xFF0A0E1A).copy(alpha = 0.97f) else Color(0xFFF8FAFC).copy(alpha = 0.97f),
                 tonalElevation = 0.dp
             ) {
                 val items = listOf(
@@ -161,13 +172,13 @@ fun MainAppLayout(viewModel: NovaRadarViewModel) {
                                 if (isRadar) {
                                     Box(
                                         modifier = Modifier
-                                            .size(48.dp)
+                                            .size(52.dp)
                                             .clip(CircleShape)
                                             .background(
                                                 if (isScanning)
                                                     Brush.linearGradient(listOf(Color(0xFFBE123C), Color(0xFF9F1239)))
                                                 else
-                                                    Brush.linearGradient(listOf(Color(0xFFDC2626), Color(0xFF991B1B)))
+                                                    Brush.linearGradient(listOf(Color(0xFF0D7DB3), Color(0xFF065A8C)))
                                             )
                                             .clickable {
                                                 if (isScanning) viewModel.stopScan()
@@ -176,18 +187,18 @@ fun MainAppLayout(viewModel: NovaRadarViewModel) {
                                             .testTag("nav_start_button"),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(Icons.Default.PowerSettingsNew, "Start/Stop", tint = Color.White, modifier = Modifier.size(24.dp))
+                                        Icon(Icons.Default.PowerSettingsNew, "Start/Stop", tint = Color.White, modifier = Modifier.size(26.dp))
                                     }
                                 } else {
                                     Icon(
                                         imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
                                         contentDescription = Localization.get(item.key, lang),
                                         tint = if (isSelected) {
-                                            if (isDark) Color(0xFF4DA8FF) else Color(0xFF2563EB)
+                                            if (isDark) Color(0xFF4DA8FF) else Color(0xFF0D7DB3)
                                         } else {
-                                            if (isDark) Color(0xFFE2E8F0).copy(alpha = 0.4f) else Color(0xFF334155).copy(alpha = 0.4f)
+                                            if (isDark) Color(0xFFE2E8F0).copy(alpha = 0.4f) else Color(0xFF94A3B8).copy(alpha = 0.5f)
                                         },
-                                        modifier = Modifier.size(22.dp)
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
