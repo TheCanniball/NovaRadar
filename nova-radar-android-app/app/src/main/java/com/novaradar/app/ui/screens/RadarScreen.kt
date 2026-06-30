@@ -290,7 +290,7 @@ private fun ScannerTab(
                         .clickable(remember { MutableInteractionSource() }, null) { onShowFullscreen(true) },
                     contentAlignment = Alignment.Center
                 ) {
-                    RadarCanvas(allIps.take(6), dotPositions, animatedAngle, sweepBrush, isScanning)
+                    RadarCanvas(allIps.take(6), dotPositions, animatedAngle, sweepBrush, isScanning, showLabels = false)
                 }
             }
             // 2x2 stat grid
@@ -338,16 +338,38 @@ private fun ScannerTab(
             }
         }
 
-        // Probe feed — remaining space
+        // Probe feed + terminal log — merged
+        val mergedLog = remember(recentProbes, viewModel.logs) {
+            val logs = viewModel.logs.value
+            val combined = mutableListOf<String>()
+            combined.addAll(recentProbes.take(8))
+            if (logs.isNotEmpty()) {
+                combined.add("─".repeat(20))
+                combined.addAll(logs.take(6))
+            }
+            combined
+        }
         WidgetCard(isLightTheme = isLight, borderColor = Wc.primary.copy(alpha = 0.08f), modifier = Modifier.weight(1f)) {
-            Text("PROBE FEED", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = Wc.primary.copy(alpha = 0.5f), letterSpacing = 1.sp)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("PROBE FEED", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = Wc.primary.copy(alpha = 0.5f), letterSpacing = 1.sp)
+                TextButton(onClick = { viewModel.clearLogs() }, contentPadding = PaddingValues(horizontal = 4.dp), modifier = Modifier.height(20.dp)) {
+                    Text("Clear", fontSize = 7.sp, color = Wc.primary.copy(alpha = 0.5f))
+                }
+            }
             Spacer(Modifier.height(4.dp))
-            if (recentProbes.isEmpty()) {
+            if (mergedLog.isEmpty()) {
                 Text("awaiting scan...", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = Wc.primary.copy(alpha = 0.2f))
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    recentProbes.take(5).forEach { entry ->
-                        Text(entry, fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = (if (isLight) Color(0xFF1A202C) else Wc.success).copy(alpha = 0.6f), maxLines = 1)
+                    mergedLog.take(10).forEach { entry ->
+                        val txtColor = when {
+                            entry.contains("✓") || entry.contains("ALIVE") || entry.contains("✔") -> Wc.success
+                            entry.contains("✗") || entry.contains("DEAD") || entry.contains("✖") -> Wc.error.copy(alpha = 0.5f)
+                            entry.startsWith("─") -> Wc.primary.copy(alpha = 0.3f)
+                            entry.contains("ms") && !entry.contains("✗") -> Wc.primary.copy(alpha = 0.7f)
+                            else -> (if (isLight) Color(0xFF4A5568) else Color(0xFF8B95A8)).copy(alpha = 0.6f)
+                        }
+                        Text(entry, fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = txtColor, maxLines = 1)
                     }
                 }
             }
@@ -361,7 +383,8 @@ private val radarDim = Color(0xFF003322)
 @Composable
 private fun RadarCanvas(
     allIps: List<AliveIp>, dotPositions: List<DotPos>,
-    animatedAngle: Float, sweepBrush: Brush, isScanning: Boolean
+    animatedAngle: Float, sweepBrush: Brush, isScanning: Boolean,
+    showLabels: Boolean = false
 ) {
     Canvas(Modifier.fillMaxSize()) {
         val r = size.minDimension / 2f
@@ -370,7 +393,7 @@ private fun RadarCanvas(
 
         val alphaScale = if (isScanning) 1f else 0.10f
 
-        // Range rings — ATC style concentric circles
+        // Range rings
         for (i in 1..4) {
             val radius = outer * (i / 4f)
             val ringAlpha = 0.12f + (i / 4f) * 0.12f
@@ -384,24 +407,27 @@ private fun RadarCanvas(
         drawLine(radarGreen.copy(alpha = 0.05f * alphaScale), Offset(c.x - diag, c.y - diag), Offset(c.x + diag, c.y + diag), 0.5.dp.toPx())
         drawLine(radarGreen.copy(alpha = 0.05f * alphaScale), Offset(c.x + diag, c.y - diag), Offset(c.x - diag, c.y + diag), 0.5.dp.toPx())
 
-        // Sweep gradient
-        drawIntoCanvas { canvas ->
-            canvas.save()
-            canvas.translate(c.x, c.y)
-            canvas.rotate(animatedAngle)
-            drawCircle(brush = sweepBrush, radius = outer, alpha = alphaScale)
-            canvas.restore()
+        // Realistic radar sweep: trailing glow behind sweep line (no rotating full circle)
+        val sweepRad = Math.toRadians(animatedAngle.toDouble())
+        val sweepEndX = c.x + outer * cos(sweepRad).toFloat()
+        val sweepEndY = c.y + outer * sin(sweepRad).toFloat()
+
+        // Draw fading trail behind the sweep line (narrow radar beam)
+        for (i in 1..6) {
+            val trailAngle = animatedAngle - i * 1.8f
+            val tRad = Math.toRadians(trailAngle.toDouble())
+            val tx = c.x + outer * cos(tRad).toFloat()
+            val ty = c.y + outer * sin(tRad).toFloat()
+            val trailAlpha = (0.25f * (1f - i / 6f)).coerceIn(0f, 1f)
+            drawLine(color = radarGreen.copy(alpha = trailAlpha * alphaScale), start = c, end = Offset(tx, ty), strokeWidth = (1.5f - i * 0.18f).dp.toPx())
         }
 
-        // Sweep line
-        val aRad = Math.toRadians(animatedAngle.toDouble())
-        val ex = c.x + outer * cos(aRad).toFloat()
-        val ey = c.y + outer * sin(aRad).toFloat()
-        drawLine(color = radarGreen.copy(alpha = 0.65f * alphaScale), start = c, end = Offset(ex, ey), strokeWidth = 1.5.dp.toPx())
+        // Main sweep line (bright)
+        drawLine(color = radarGreen.copy(alpha = 0.85f * alphaScale), start = c, end = Offset(sweepEndX, sweepEndY), strokeWidth = 1.8.dp.toPx())
 
         // Center dot
-        drawCircle(color = radarGreen.copy(alpha = 0.8f * alphaScale), radius = 3.dp.toPx())
-        drawCircle(color = radarGreen.copy(alpha = 0.2f * alphaScale), radius = 5.dp.toPx(), style = Stroke(0.5.dp.toPx()))
+        drawCircle(color = radarGreen.copy(alpha = 0.9f * alphaScale), radius = 3.dp.toPx())
+        drawCircle(color = radarGreen.copy(alpha = 0.25f * alphaScale), radius = 5.dp.toPx(), style = Stroke(0.5.dp.toPx()))
 
         // Draw top 10 dots
         allIps.take(10).forEachIndexed { index, alive ->
@@ -429,14 +455,14 @@ private fun RadarCanvas(
                 drawCircle(color = dotColor.copy(alpha = 0.3f * alpha), radius = 6.dp.toPx(), center = Offset(dx, dy), style = Stroke(1.dp.toPx()))
                 drawCircle(color = dotColor.copy(alpha = alpha), radius = 3.dp.toPx(), center = Offset(dx, dy))
 
-                val paint = android.graphics.Paint().apply {
-                    color = android.graphics.Color.argb((alpha.coerceIn(0.4f, 1f) * 255).toInt(), 0, 255, 102)
-                    textSize = 20f
-                    textAlign = android.graphics.Paint.Align.CENTER
-                    isAntiAlias = true
-                }
-                if (index < 5) {
-                    drawContext.canvas.nativeCanvas.drawText("${alive.ping}ms", dx, dy - 8.dp.toPx(), paint)
+                if (showLabels && index < 5) {
+                    val paint = android.graphics.Paint().apply {
+                        color = android.graphics.Color.argb((alpha.coerceIn(0.4f, 1f) * 255).toInt(), 0, 255, 102)
+                        textSize = 14f
+                        textAlign = android.graphics.Paint.Align.CENTER
+                        isAntiAlias = true
+                    }
+                    drawContext.canvas.nativeCanvas.drawText("${alive.ping}ms", dx, dy - 6.dp.toPx(), paint)
                 }
             }
         }
@@ -476,16 +502,23 @@ private fun FullscreenRadarDialog(
                     drawLine(radarGreen.copy(alpha = 0.05f * alphaScale), Offset(c.x - diag, c.y - diag), Offset(c.x + diag, c.y + diag), 0.5.dp.toPx())
                     drawLine(radarGreen.copy(alpha = 0.05f * alphaScale), Offset(c.x + diag, c.y - diag), Offset(c.x - diag, c.y + diag), 0.5.dp.toPx())
 
-                    drawIntoCanvas { canvas ->
-                        canvas.save(); canvas.translate(c.x, c.y); canvas.rotate(animatedAngle); drawCircle(brush = sweepBrush, radius = outer, alpha = alphaScale); canvas.restore()
-                    }
-                    val aRad = Math.toRadians(animatedAngle.toDouble())
-                    val ex = c.x + outer * cos(aRad).toFloat()
-                    val ey = c.y + outer * sin(aRad).toFloat()
-                    drawLine(color = radarGreen.copy(alpha = 0.65f * alphaScale), start = c, end = Offset(ex, ey), strokeWidth = 2.dp.toPx())
+                    val sweepRad = Math.toRadians(animatedAngle.toDouble())
+                    val sweepEndX = c.x + outer * cos(sweepRad).toFloat()
+                    val sweepEndY = c.y + outer * sin(sweepRad).toFloat()
 
-                    drawCircle(color = radarGreen.copy(alpha = 0.8f * alphaScale), radius = 4.dp.toPx())
-                    drawCircle(color = radarGreen.copy(alpha = 0.2f * alphaScale), radius = 6.dp.toPx(), style = Stroke(0.5.dp.toPx()))
+                    for (i in 1..6) {
+                        val trailAngle = animatedAngle - i * 1.8f
+                        val tRad = Math.toRadians(trailAngle.toDouble())
+                        val tx = c.x + outer * cos(tRad).toFloat()
+                        val ty = c.y + outer * sin(tRad).toFloat()
+                        val trailAlpha = (0.25f * (1f - i / 6f)).coerceIn(0f, 1f)
+                        drawLine(color = radarGreen.copy(alpha = trailAlpha * alphaScale), start = c, end = Offset(tx, ty), strokeWidth = (2f - i * 0.22f).dp.toPx())
+                    }
+
+                    drawLine(color = radarGreen.copy(alpha = 0.85f * alphaScale), start = c, end = Offset(sweepEndX, sweepEndY), strokeWidth = 2.dp.toPx())
+
+                    drawCircle(color = radarGreen.copy(alpha = 0.9f * alphaScale), radius = 4.dp.toPx())
+                    drawCircle(color = radarGreen.copy(alpha = 0.25f * alphaScale), radius = 6.dp.toPx(), style = Stroke(0.5.dp.toPx()))
 
                     allIps.take(10).forEachIndexed { index, alive ->
                         if (index < dotPositions.size) {
@@ -504,9 +537,9 @@ private fun FullscreenRadarDialog(
                             drawCircle(color = dotColor.copy(alpha = alpha), radius = 3.5f.dp.toPx(), center = Offset(dx, dy))
                             val paint = android.graphics.Paint().apply {
                                 color = android.graphics.Color.argb((alpha.coerceIn(0.4f, 1f) * 255).toInt(), 0, 255, 102)
-                                textSize = 24f; textAlign = android.graphics.Paint.Align.CENTER; isAntiAlias = true
+                                textSize = 16f; textAlign = android.graphics.Paint.Align.CENTER; isAntiAlias = true
                             }
-                            drawContext.canvas.nativeCanvas.drawText("${alive.ping}ms", dx, dy - 10.dp.toPx(), paint)
+                            drawContext.canvas.nativeCanvas.drawText("${alive.ping}ms", dx, dy - 8.dp.toPx(), paint)
                         }
                     }
                 }
@@ -849,7 +882,7 @@ private fun ResultsTab(
                             Column(Modifier.weight(1f)) {
                                 Text(alive.ip, fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (isLight) Color(0xFF1A202C) else Color(0xFFE8ECF4), maxLines = 1)
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text(":${alive.port}", fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = Wc.primary.copy(alpha = 0.5f))
+                                    Text(":${alive.port}#Nova-${alive.novaId}", fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = Wc.success.copy(alpha = 0.7f))
                                     val rank = pingRank(alive.ping)
                                     Box(Modifier.clip(RoundedCornerShape(2.dp)).background(rankColor(rank).copy(alpha = 0.15f)).padding(horizontal = 3.dp, vertical = 1.dp)) {
                                         Text(rank.label, fontSize = 6.sp, fontWeight = FontWeight.Bold, color = rankColor(rank))

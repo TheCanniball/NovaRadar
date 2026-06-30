@@ -1,19 +1,15 @@
 package com.novaradar.app.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Send
@@ -25,7 +21,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -34,7 +29,6 @@ import androidx.compose.ui.unit.sp
 import com.novaradar.app.ui.components.Wc
 import com.novaradar.app.ui.components.WidgetCard
 import com.novaradar.app.ui.localization.Localization
-import com.novaradar.app.ui.viewmodel.AppLanguage
 import com.novaradar.app.ui.viewmodel.AppTheme
 import com.novaradar.app.ui.viewmodel.NovaRadarViewModel
 
@@ -43,9 +37,7 @@ fun AboutScreen(viewModel: NovaRadarViewModel) {
     val lang by viewModel.selectedLanguage.collectAsState()
     val theme by viewModel.selectedTheme.collectAsState()
     val isLight = theme == AppTheme.PRISM_LIGHT
-    val context = LocalContext.current
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-    val logs by viewModel.logs.collectAsState()
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -74,32 +66,6 @@ fun AboutScreen(viewModel: NovaRadarViewModel) {
                 }
             }
 
-            WidgetCard(isLightTheme = isLight) {
-                Column {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("TERMINAL LOG", fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Wc.primary.copy(alpha = 0.5f), letterSpacing = 1.sp)
-                        TextButton(onClick = { viewModel.clearLogs() }, contentPadding = PaddingValues(horizontal = 8.dp), modifier = Modifier.height(24.dp)) { Text("Clear", fontSize = 9.sp, color = Wc.primary) }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Box(Modifier.fillMaxWidth().heightIn(min = 60.dp, max = 200.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF030712)).border(0.5.dp, Wc.primary.copy(alpha = 0.2f), RoundedCornerShape(12.dp)).padding(10.dp)) {
-                        if (logs.isEmpty()) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("TERMINAL IDLE", fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = Color.Gray.copy(alpha = 0.4f)) }
-                        } else {
-                            LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                items(logs) { log ->
-                                    val textColor = when {
-                                        log.contains("✔") || log.contains("ALIVE") -> Wc.primary
-                                        log.contains("✖") || log.contains("DEAD") -> Wc.error.copy(alpha = 0.5f)
-                                        log.contains("======") -> Wc.primary
-                                        else -> Color(0xFF9CA3AF)
-                                    }
-                                    Text(log, fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = textColor, maxLines = 1)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
             Spacer(Modifier.height(8.dp))
         }
     }
