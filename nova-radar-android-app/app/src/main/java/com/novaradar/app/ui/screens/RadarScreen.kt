@@ -1,5 +1,7 @@
 package com.novaradar.app.ui.screens
 
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -34,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.novaradar.app.ui.components.ParticleBackground
 import com.novaradar.app.ui.components.StatWidget
 import com.novaradar.app.ui.components.Wc
 import com.novaradar.app.ui.components.WidgetCard
@@ -48,6 +51,24 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 private val tlsPorts = setOf(443, 2053, 2083, 2087, 2096, 8443)
+
+private enum class Rank(val label: String, val maxPing: Int) {
+    S("S", 80), A("A", 200), B("B", 400), C("C", Int.MAX_VALUE)
+}
+
+private fun pingRank(ping: Long): Rank = when {
+    ping < 80 -> Rank.S
+    ping < 200 -> Rank.A
+    ping < 400 -> Rank.B
+    else -> Rank.C
+}
+
+private fun rankColor(rank: Rank): Color = when (rank) {
+    Rank.S -> Color(0xFF00CC66)
+    Rank.A -> Color(0xFF3B82F6)
+    Rank.B -> Color(0xFFF59E0B)
+    Rank.C -> Color(0xFFEF4444)
+}
 
 @Composable
 fun RadarScreen(viewModel: NovaRadarViewModel) {
@@ -65,6 +86,10 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
 
     val isLight = theme == AppTheme.PRISM_LIGHT
     val subPagerState = rememberPagerState(pageCount = { 2 })
+
+    // Network type detection
+    val networkType = remember(context) { viewModel.getNetworkType(context) }
+    var selectedOperator by remember { mutableStateOf("all") }
     val coroutineScope = rememberCoroutineScope()
     var showConfigBuilder by remember { mutableStateOf(false) }
     var showFullscreenRadar by remember { mutableStateOf(false) }
@@ -110,6 +135,7 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
+        ParticleBackground(isLight = isLight, modifier = Modifier.fillMaxSize())
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // Sub-tabs
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -144,7 +170,7 @@ fun RadarScreen(viewModel: NovaRadarViewModel) {
                 modifier = Modifier.weight(1f).fillMaxWidth()
             ) { page ->
                 when (page) {
-                    0 -> ScannerTab(isScanning, scannedCount, aliveCount, deadCount, eta, subnetScanning, allIps, recentProbes, animatedAngle, sweepBrush, dotPositions, isLight, showFullscreenRadar, { showFullscreenRadar = it })
+                    0 -> ScannerTab(isScanning, scannedCount, aliveCount, deadCount, eta, subnetScanning, allIps, recentProbes, animatedAngle, sweepBrush, dotPositions, isLight, showFullscreenRadar, { showFullscreenRadar = it }, viewModel, context, networkType, selectedOperator, { selectedOperator = it })
                     1 -> ResultsTab(viewModel, isScanning, aliveCount, allIps, context, lang, isLight, showConfigBuilder, { showConfigBuilder = it }, cfgUuid, { cfgUuid = it }, cfgSni, { cfgSni = it }, cfgNetwork, { cfgNetwork = it }, cfgSecurity, { cfgSecurity = it }, cfgPath, { cfgPath = it })
                 }
             }
@@ -164,57 +190,107 @@ private fun ScannerTab(
     isScanning: Boolean, scannedCount: Int, aliveCount: Int, deadCount: Int,
     eta: String, subnetScanning: String, allIps: List<AliveIp>, recentProbes: List<String>,
     animatedAngle: Float, sweepBrush: Brush, dotPositions: List<DotPos>,
-    isLight: Boolean, showFullscreenRadar: Boolean, onShowFullscreen: (Boolean) -> Unit
+    isLight: Boolean, showFullscreenRadar: Boolean, onShowFullscreen: (Boolean) -> Unit,
+    viewModel: NovaRadarViewModel, context: android.content.Context,
+    networkType: String, selectedOperator: String, onOperatorChange: (String) -> Unit
 ) {
+    val lastScanTime by viewModel.lastScanTimestamp.collectAsState()
+
     Column(
         Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // Radar widget — fixed square aspect ratio with green circular radar
-        WidgetCard(isLightTheme = isLight, borderColor = Wc.primary.copy(alpha = 0.12f), modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
-            Box(
-                modifier = Modifier.fillMaxSize()
-                    .clip(CircleShape)
-                    .background(if (isLight) Color(0xFF001a0a) else Color(0xFF000d05))
-                    .clickable(remember { MutableInteractionSource() }, null) { onShowFullscreen(true) },
-                contentAlignment = Alignment.Center
-            ) {
-                RadarCanvas(allIps, dotPositions, animatedAngle, sweepBrush, isScanning)
-            }
-        }
-
-        // Status bar
+        // Network status bar
         Box(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
                 .background(if (isLight) Color.White.copy(alpha = 0.5f) else Color(0xFF0D1219).copy(alpha = 0.5f))
-                .border(0.5.dp, Wc.primary.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
-                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .border(0.5.dp, Wc.primary.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                .padding(horizontal = 10.dp, vertical = 5.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Box(Modifier.size(6.dp).clip(CircleShape).background(if (isScanning) Wc.success else Wc.success.copy(alpha = 0.3f)))
-                    Spacer(Modifier.width(6.dp))
                     Text(
                         if (isScanning) subnetScanning.ifEmpty { "SCANNING..." } else "STANDBY",
-                        fontFamily = FontFamily.Monospace, fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace, fontSize = 8.sp,
                         color = (if (isScanning) Wc.success else Wc.successLight).copy(alpha = 0.8f)
                     )
                 }
-                Text("ETA $eta", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = Wc.warning.copy(alpha = 0.7f))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val netColor = when (networkType) {
+                        "WiFi" -> Color(0xFF3B82F6)
+                        "5G" -> Color(0xFF10B981)
+                        "4G" -> Color(0xFF8B5CF6)
+                        else -> Color.Gray
+                    }
+                    Box(Modifier.clip(RoundedCornerShape(4.dp)).background(netColor.copy(alpha = 0.12f)).padding(horizontal = 5.dp, vertical = 1.dp)) {
+                        Text(networkType, fontSize = 7.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = netColor)
+                    }
+                    Text("ETA $eta", fontFamily = FontFamily.Monospace, fontSize = 8.sp, color = Wc.warning.copy(alpha = 0.7f))
+                }
             }
         }
 
-        // 2x2 stat grid — compact
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            StatWidget(Modifier.weight(1f), "SCANNED", "$scannedCount", Wc.primary, Wc.primary, isLight)
-            StatWidget(Modifier.weight(1f), "ALIVE", "$aliveCount", Wc.success, Wc.success, isLight)
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            StatWidget(Modifier.weight(1f), "DEAD", "$deadCount", Wc.error, Wc.error, isLight)
-            StatWidget(Modifier.weight(1f), "ETA", eta, Wc.warning, Wc.warning, isLight)
+        // Top row: compact radar + stat boxes side by side
+        Row(Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Compact radar
+            WidgetCard(isLightTheme = isLight, borderColor = Wc.primary.copy(alpha = 0.12f), modifier = Modifier.weight(1f).fillMaxHeight()) {
+                Box(
+                    modifier = Modifier.fillMaxSize()
+                        .clip(CircleShape)
+                        .background(if (isLight) Color(0xFF001a0a) else Color(0xFF000d05))
+                        .clickable(remember { MutableInteractionSource() }, null) { onShowFullscreen(true) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    RadarCanvas(allIps.take(6), dotPositions, animatedAngle, sweepBrush, isScanning)
+                }
+            }
+            // 2x2 stat grid
+            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    StatWidget(Modifier.weight(1f), "SCANNED", "$scannedCount", Wc.primary, Wc.primary, isLight)
+                    StatWidget(Modifier.weight(1f), "ALIVE", "$aliveCount", Wc.success, Wc.success, isLight)
+                }
+                Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    StatWidget(Modifier.weight(1f), "DEAD", "$deadCount", Wc.error, Wc.error, isLight)
+                    StatWidget(Modifier.weight(1f), "ETA", eta, Wc.warning, Wc.warning, isLight)
+                }
+            }
         }
 
-        // Probe feed — scrollable within remaining space
+        // Operator selector row
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf("all" to "All", "mci" to "MCI", "mtn" to "MTN", "ict" to "ICT").forEach { (key, label) ->
+                val active = selectedOperator == key
+                Box(
+                    Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                        .background(if (active) Color(0xFF3B82F6).copy(alpha = 0.15f) else Color.Transparent)
+                        .border(0.5.dp, if (active) Color(0xFF3B82F6).copy(alpha = 0.4f) else Color.Gray.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                        .clickable(remember { MutableInteractionSource() }, null) { onOperatorChange(key) }
+                        .padding(vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(label, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                        color = if (active) Color(0xFF3B82F6) else Color.Gray.copy(alpha = 0.6f))
+                }
+            }
+        }
+
+        // Last scan time + probe feed
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Last scan time
+            if (lastScanTime > 0) {
+                Box(
+                    Modifier.clip(RoundedCornerShape(6.dp)).background(if (isLight) Color(0xFFEDF2F7) else Color(0xFF1C2333)).padding(horizontal = 8.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val timeStr = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date(lastScanTime))
+                    Text("Updated $timeStr", fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = Color.Gray.copy(alpha = 0.6f))
+                }
+            }
+        }
+
+        // Probe feed — remaining space
         WidgetCard(isLightTheme = isLight, borderColor = Wc.primary.copy(alpha = 0.08f), modifier = Modifier.weight(1f)) {
             Text("PROBE FEED", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = Wc.primary.copy(alpha = 0.5f), letterSpacing = 1.sp)
             Spacer(Modifier.height(4.dp))
@@ -418,6 +494,7 @@ private fun ResultsTab(
 ) {
     val speedResults by viewModel.speedResults.collectAsState()
     val runningSpeedTests by viewModel.runningSpeedTests.collectAsState()
+    val lastScanTime by viewModel.lastScanTimestamp.collectAsState()
     var maxPing by remember { mutableStateOf(9999) }
     var showPingSlider by remember { mutableStateOf(false) }
 
@@ -444,9 +521,6 @@ private fun ResultsTab(
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         IconButton(onClick = { showPingSlider = !showPingSlider }, modifier = Modifier.size(26.dp)) {
                             Icon(Icons.Default.FilterList, null, tint = if (maxPing >= 9999) Wc.primary else Wc.warning, modifier = Modifier.size(14.dp))
-                        }
-                        IconButton(onClick = { viewModel.copyAllToClipboard(context) }, modifier = Modifier.size(26.dp)) {
-                            Icon(Icons.Default.ContentCopy, null, tint = Wc.primary, modifier = Modifier.size(14.dp))
                         }
                         IconButton(onClick = { viewModel.exportResultsToTxtFile(context) }, modifier = Modifier.size(26.dp)) {
                             Icon(Icons.Default.Save, null, tint = Wc.primary, modifier = Modifier.size(14.dp))
@@ -479,13 +553,76 @@ private fun ResultsTab(
             }
         }
 
-        // Export format row
+        // Export format row + info bar + copy all dropdown
         if (filteredIps.isNotEmpty()) {
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    listOf("Clash" to { viewModel.exportClash(context) }, "V2Ray" to { viewModel.exportV2Ray(context) }, "VLESS" to { viewModel.exportVLESS(context) }, "SingBox" to { viewModel.exportSingBox(context) }).forEach { (label, action) ->
-                        Box(Modifier.weight(1f).height(28.dp).clip(RoundedCornerShape(6.dp)).background(Wc.primary.copy(alpha = 0.08f)).border(0.5.dp, Wc.primary.copy(alpha = 0.2f), RoundedCornerShape(6.dp)).clickable(remember { MutableInteractionSource() }, null, onClick = action), contentAlignment = Alignment.Center) {
-                            Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Wc.primary)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("Clash" to { viewModel.exportClash(context) }, "V2Ray" to { viewModel.exportV2Ray(context) }, "VLESS" to { viewModel.exportVLESS(context) }, "SingBox" to { viewModel.exportSingBox(context) }).forEach { (label, action) ->
+                            Box(Modifier.weight(1f).height(28.dp).clip(RoundedCornerShape(6.dp)).background(Wc.primary.copy(alpha = 0.08f)).border(0.5.dp, Wc.primary.copy(alpha = 0.2f), RoundedCornerShape(6.dp)).clickable(remember { MutableInteractionSource() }, null, onClick = action), contentAlignment = Alignment.Center) {
+                                Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Wc.primary)
+                            }
+                        }
+                    }
+
+                    // Info bar with rank distribution + last update
+                    val rankCounts = filteredIps.groupBy { pingRank(it.ping) }.mapValues { it.value.size }
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(if (isLight) Color(0xFFEDF2F7) else Color(0xFF1C2333)).padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column {
+                            Text("${filteredIps.size} IPs", fontSize = 9.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = if (isLight) Color(0xFF1A202C) else Wc.onSurfaceDark)
+                            if (lastScanTime > 0) {
+                                val timeStr = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).format(java.util.Date(lastScanTime))
+                                Text("~$timeStr", fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = Color.Gray.copy(alpha = 0.5f))
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Rank.entries.forEach { r ->
+                                val cnt = rankCounts[r] ?: 0
+                                if (cnt > 0) {
+                                    Box(Modifier.clip(RoundedCornerShape(3.dp)).background(rankColor(r).copy(alpha = 0.15f)).padding(horizontal = 4.dp, vertical = 1.dp)) {
+                                        Text("$r$cnt", fontSize = 8.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = rankColor(r))
+                                    }
+                                }
+                            }
+                        }
+                        Text("Ø${filteredIps.map { it.ping }.average().toLong()}ms", fontSize = 8.sp, fontFamily = FontFamily.Monospace, color = if (isLight) Color(0xFF4A5568) else Color.Gray)
+                    }
+
+                    // Ping comparison chart (top 15)
+                    val chartIps = filteredIps.sortedBy { it.ping }.take(15)
+                    val maxChartPing = chartIps.maxOfOrNull { it.ping }?.coerceAtLeast(1) ?: 1
+                    WidgetCard(isLightTheme = isLight, borderColor = Wc.primary.copy(alpha = 0.08f), modifier = Modifier.fillMaxWidth()) {
+                        Text("PING COMPARISON", fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = Wc.primary.copy(alpha = 0.5f), letterSpacing = 1.sp)
+                        Spacer(Modifier.height(4.dp))
+                        chartIps.forEachIndexed { idx, ip ->
+                            val rank = pingRank(ip.ping)
+                            val bw = (ip.ping.toFloat() / maxChartPing).coerceIn(0.02f, 1f)
+                            Row(Modifier.fillMaxWidth().padding(vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("#${idx + 1}", Modifier.width(18.dp), fontSize = 6.sp, fontFamily = FontFamily.Monospace, color = if (isLight) Color(0xFF4A5568) else Color.Gray.copy(alpha = 0.5f))
+                                Text(ip.ip.takeLast(8), Modifier.width(52.dp), fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = if (isLight) Color(0xFF1A202C) else Wc.onSurfaceDark, maxLines = 1)
+                                Box(Modifier.weight(1f).height(10.dp).clip(RoundedCornerShape(2.dp)).background(rankColor(rank).copy(alpha = 0.1f))) {
+                                    Box(Modifier.fillMaxWidth(bw).fillMaxHeight().background(rankColor(rank).copy(alpha = 0.5f)))
+                                }
+                                Text("${ip.ping}ms", Modifier.width(30.dp), fontSize = 7.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = rankColor(rank))
+                            }
+                        }
+                    }
+
+                    // Copy all dropdown
+                    var showCopyAllMenu by remember { mutableStateOf(false) }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        Box {
+                            Box(Modifier.clip(RoundedCornerShape(6.dp)).background(Wc.primary.copy(alpha = 0.08f)).border(0.5.dp, Wc.primary.copy(alpha = 0.2f), RoundedCornerShape(6.dp)).clickable(remember { MutableInteractionSource() }, null) { showCopyAllMenu = true }.padding(horizontal = 10.dp, vertical = 4.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Icon(Icons.Default.ContentCopy, null, tint = Wc.primary, modifier = Modifier.size(12.dp))
+                                    Text("COPY ALL ▼", fontSize = 8.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Wc.primary)
+                                }
+                            }
+                            DropdownMenu(expanded = showCopyAllMenu, onDismissRequest = { showCopyAllMenu = false }) {
+                                DropdownMenuItem(text = { Text("Copy IPs", fontSize = 11.sp) }, onClick = { showCopyAllMenu = false; viewModel.copyAllIpsOnly(context) })
+                                DropdownMenuItem(text = { Text("Copy IP:Port", fontSize = 11.sp) }, onClick = { showCopyAllMenu = false; viewModel.copyAllIpsPort(context) })
+                                DropdownMenuItem(text = { Text("Copy Full List", fontSize = 11.sp) }, onClick = { showCopyAllMenu = false; viewModel.copyAllToClipboard(context) })
+                            }
                         }
                     }
                 }
@@ -531,6 +668,10 @@ private fun ResultsTab(
                                 Text(alive.ip, fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (isLight) Color(0xFF1A202C) else Color(0xFFE8ECF4), maxLines = 1)
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                                     Text(":${alive.port}", fontSize = 7.sp, fontFamily = FontFamily.Monospace, color = Wc.primary.copy(alpha = 0.5f))
+                                    val rank = pingRank(alive.ping)
+                                    Box(Modifier.clip(RoundedCornerShape(2.dp)).background(rankColor(rank).copy(alpha = 0.15f)).padding(horizontal = 3.dp, vertical = 1.dp)) {
+                                        Text(rank.label, fontSize = 6.sp, fontWeight = FontWeight.Bold, color = rankColor(rank))
+                                    }
                                     if (alive.port in tlsPorts) {
                                         Box(Modifier.clip(RoundedCornerShape(2.dp)).background(Wc.primary.copy(alpha = 0.1f)).padding(horizontal = 3.dp, vertical = 1.dp)) {
                                             Text("TLS", fontSize = 6.sp, fontWeight = FontWeight.Bold, color = Wc.primary.copy(alpha = 0.7f))

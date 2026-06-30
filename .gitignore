@@ -33,3 +33,5 @@ nova-radar-android-app/upload-key.pem
 
 # Upstream sync cache
 .upstream/last-sync-files.txt
+
+source/

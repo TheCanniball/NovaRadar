@@ -39,14 +39,15 @@ fun WidgetCard(
     modifier: Modifier = Modifier,
     isLightTheme: Boolean,
     borderColor: Color = Wc.primary.copy(alpha = 0.18f),
+    glassIntensity: Float = 0.7f,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isLightTheme) Color.White.copy(alpha = 0.7f)
-            else Color(0xFF161D2A).copy(alpha = 0.8f)
+            containerColor = if (isLightTheme) Color.White.copy(alpha = glassIntensity)
+            else Color(0xFF161D2A).copy(alpha = glassIntensity.coerceIn(0.5f, 0.95f))
         ),
         border = BorderStroke(1.dp, borderColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
