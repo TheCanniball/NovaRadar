@@ -1,7 +1,7 @@
 import java.net.URL
 import java.net.HttpURLConnection
 
-val appVersionName = "1.4.0"
+val appVersionName = "2.0.0"
 
 plugins {
   alias(libs.plugins.android.application)
@@ -19,7 +19,7 @@ android {
     applicationId = "com.novaproxy.scanner"
     minSdk = 24
     targetSdk = 35
-    versionCode = 2
+    versionCode = 3
     versionName = appVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

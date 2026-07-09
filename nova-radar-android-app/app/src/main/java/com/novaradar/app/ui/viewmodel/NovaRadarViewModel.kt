@@ -1253,6 +1253,14 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
         Toast.makeText(context, if (_selectedLanguage.value == AppLanguage.FA) "کپی شد: ${item.ip}" else "Copied: ${item.ip}", Toast.LENGTH_SHORT).show()
     }
 
+    fun copyIpPortOnly(context: Context, item: AliveIp) {
+        val config = "${item.ip}:${item.port}"
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("NovaRadarConfig", config)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(context, if (_selectedLanguage.value == AppLanguage.FA) "کپی شد: $config" else "Copied: $config", Toast.LENGTH_SHORT).show()
+    }
+
     fun copyAllIpsOnly(context: Context) {
         val list = _allAliveIps.value
         if (list.isEmpty()) return
