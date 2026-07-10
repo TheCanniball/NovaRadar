@@ -86,10 +86,15 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Setup keystore
+      - name: Decode keystore
         run: |
-          cp "${{ github.workspace }}/nova-radar-android-app/nova-radar-key.jks" "${{ github.workspace }}/nova-radar-android-app/release-key.jks" || true
-          echo "Keystore ready"
+          mkdir -p "${{ github.workspace }}/nova-radar-android-app"
+          keytool -genkeypair -v \
+            -keystore "${{ github.workspace }}/nova-radar-android-app/nova-radar-key.jks" \
+            -alias nova-radar -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass 123456 -keypass 123456 \
+            -dname CN=NovaRadar,OU=Dev,O=NovaProxy,L=World,S=World,C=US
+          echo "Keystore generated"
 
       - name: Grant execute permission
         run: chmod +x gradlew
@@ -100,9 +105,9 @@ jobs:
         working-directory: nova-radar-android-app
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/nova-radar-android-app/nova-radar-key.jks
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || '123456' }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'nova-radar' }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || '123456' }}
+          KEYSTORE_PASSWORD: 123456
+          KEY_ALIAS: nova-radar
+          KEY_PASSWORD: 123456
 
       - name: Generate release notes
         id: notes
