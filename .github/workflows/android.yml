@@ -88,19 +88,13 @@ jobs:
 
       - name: Decode keystore
         run: |
-          mkdir -p "${{ github.workspace }}/nova-radar-android-app"
-          KS_B64="${{ secrets.KEYSTORE_B64 }}"
-          if [ -n "$KS_B64" ]; then
-            echo "$KS_B64" | base64 -d > "${{ github.workspace }}/nova-radar-android-app/nova-scanner-key.jks"
-            echo "Keystore decoded from secret"
-          else
-            keytool -genkeypair -v \
-              -keystore "${{ github.workspace }}/nova-radar-android-app/nova-scanner-key.jks" \
-              -alias nova-scanner -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass "Nova@2026!Secure" -keypass "Nova@2026!Secure" \
-              -dname "CN=NovaScanner, OU=Dev, O=NovaProxy, L=World, S=World, C=US"
-            echo "Temporary keystore generated"
-          fi
+          mkdir -p nova-radar-android-app
+          keytool -genkeypair -v \
+            -keystore nova-radar-android-app/nova-scanner-key.jks \
+            -alias nova-scanner -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass Nova@2026!Secure -keypass Nova@2026!Secure \
+            -dname CN=NovaScanner,OU=Dev,O=NovaProxy,L=World,S=World,C=US
+          echo "Keystore generated"
 
       - name: Grant execute permission
         run: chmod +x gradlew
@@ -110,10 +104,10 @@ jobs:
         run: ./gradlew assembleRelease bundleRelease
         working-directory: nova-radar-android-app
         env:
-          KEYSTORE_PATH: ${{ github.workspace }}/nova-radar-android-app/nova-scanner-key.jks
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'Nova@2026!Secure' }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'nova-scanner' }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'Nova@2026!Secure' }}
+          KEYSTORE_PATH: nova-radar-android-app/nova-scanner-key.jks
+          KEYSTORE_PASSWORD: Nova@2026!Secure
+          KEY_ALIAS: nova-scanner
+          KEY_PASSWORD: Nova@2026!Secure
 
       - name: Generate release notes
         id: notes
