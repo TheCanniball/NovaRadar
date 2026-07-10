@@ -27,11 +27,11 @@ android {
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/nova-scanner-key.jks"
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/nova-radar-key.jks"
       storeFile = file(keystorePath)
-      storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "Nova@2026!Secure"
-      keyAlias = System.getenv("KEY_ALIAS") ?: "nova-scanner"
-      keyPassword = System.getenv("KEY_PASSWORD") ?: "Nova@2026!Secure"
+      storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "123456"
+      keyAlias = System.getenv("KEY_ALIAS") ?: "nova-radar"
+      keyPassword = System.getenv("KEY_PASSWORD") ?: "123456"
       enableV1Signing = true
       enableV2Signing = true
     }
