@@ -89,8 +89,9 @@ jobs:
       - name: Decode keystore
         run: |
           mkdir -p "${{ github.workspace }}/nova-radar-android-app"
+          rm -f "${{ github.workspace }}/nova-radar-android-app/release.jks"
           keytool -genkeypair -v \
-            -keystore "${{ github.workspace }}/nova-radar-android-app/nova-radar-key.jks" \
+            -keystore "${{ github.workspace }}/nova-radar-android-app/release.jks" \
             -alias nova-radar -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass 123456 -keypass 123456 \
             -dname CN=NovaRadar,OU=Dev,O=NovaProxy,L=World,S=World,C=US
@@ -104,7 +105,7 @@ jobs:
         run: ./gradlew assembleRelease bundleRelease --stacktrace
         working-directory: nova-radar-android-app
         env:
-          KEYSTORE_PATH: ${{ github.workspace }}/nova-radar-android-app/nova-radar-key.jks
+          KEYSTORE_PATH: ${{ github.workspace }}/nova-radar-android-app/release.jks
           KEYSTORE_PASSWORD: 123456
           KEY_ALIAS: nova-radar
           KEY_PASSWORD: 123456
