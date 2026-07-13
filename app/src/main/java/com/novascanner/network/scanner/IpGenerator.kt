@@ -4,38 +4,30 @@ import kotlin.random.Random
 import kotlin.math.pow
 
 object IpGenerator {
-
-    data class CidrRange(val base: Long, val mask: Int)
-
-    fun parseCidr(cidr: String): CidrRange? {
+    fun parseCidr(cidr: String): List<String> {
         try {
-            val parts = cidr.split("/")
-            if (parts.size != 2) return null
-            val ipParts = parts[0].split(".")
-            if (ipParts.size != 4) return null
-            val mask = parts[1].toInt()
-            if (mask < 8 || mask > 32) return null
-            val base = ipParts.fold(0L) { acc, s -> (acc shl 8) + s.toLong() }
-            return CidrRange(base, mask)
-        } catch (_: Exception) { return null }
+            val parts = cidr.trim().split("/")
+            if (parts.size != 2) return emptyList()
+            val ipParts = parts[0].split(".").map { it.toIntOrNull() ?: return emptyList() }
+            if (ipParts.size != 4) return emptyList()
+            val mask = parts[1].toIntOrNull() ?: return emptyList()
+            if (mask < 8 || mask > 32) return emptyList()
+            val base = ipParts.fold(0L) { acc, s -> (acc shl 8) + s }
+            val hostBits = 32 - mask
+            val maxHosts = (2.0.pow(hostBits)).toLong()
+            val network = base shr hostBits shl hostBits
+            val count = minOf(50, maxHosts.toInt() - 1).coerceAtLeast(1)
+            val ips = mutableSetOf<String>()
+            while (ips.size < count) {
+                val offset = if (maxHosts <= 1) 0 else Random.nextLong(maxHosts - 1) + 1
+                val ipLong = network + offset
+                ips.add(longToIp(ipLong))
+            }
+            return ips.toList()
+        } catch (_: Exception) { return emptyList() }
     }
 
-    fun randomIpsFromCidr(cidr: String, count: Int): List<String> {
-        val range = parseCidr(cidr) ?: return emptyList()
-        val hostBits = 32 - range.mask
-        val maxHosts = 2.0.pow(hostBits).toLong()
-        val actualCount = minOf(count, maxHosts.toInt())
-        val results = mutableSetOf<String>()
-        val network = range.base shr hostBits shl hostBits
-        while (results.size < actualCount) {
-            val offset = if (maxHosts <= 1) 0 else Random.nextLong(maxHosts - 1) + 1
-            val ipLong = network + offset
-            results.add(longToIp(ipLong))
-        }
-        return results.toList()
-    }
-
-    fun parseManualIp(input: String): List<String> {
+    fun parseManualIps(input: String): List<String> {
         return input.lines()
             .flatMap { it.split(",", " ", "\t") }
             .map { it.trim() }
@@ -43,7 +35,15 @@ object IpGenerator {
             .filter { it.matches(Regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(:\\d{1,5})?$")) }
     }
 
-    private fun longToIp(value: Long): String {
-        return "${(value shr 24) and 0xFF}.${(value shr 16) and 0xFF}.${(value shr 8) and 0xFF}.${value and 0xFF}"
+    fun extractPort(ip: String, default: Int = 443): Int {
+        val idx = ip.lastIndexOf(':')
+        return if (idx > 0) ip.substring(idx + 1).toIntOrNull() ?: default else default
     }
+
+    fun stripPort(ip: String): String {
+        val idx = ip.lastIndexOf(':')
+        return if (idx > 0) ip.substring(0, idx) else ip
+    }
+
+    private fun longToIp(value: Long): String = "${(value shr 24) and 0xFF}.${(value shr 16) and 0xFF}.${(value shr 8) and 0xFF}.${value and 0xFF}"
 }

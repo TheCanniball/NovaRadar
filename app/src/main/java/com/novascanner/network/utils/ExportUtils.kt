@@ -12,7 +12,6 @@ import java.util.Date
 import java.util.Locale
 
 object ExportUtils {
-
     fun applySuffix(ip: String, port: Int, suffix: String): String {
         return if (suffix.isBlank()) "$ip:$port"
         else if (suffix.startsWith("?")) "$ip:$port$suffix"
@@ -20,37 +19,32 @@ object ExportUtils {
         else "$ip:$port?$suffix"
     }
 
-    fun copyToClipboard(context: Context, text: String, label: String = "IP") {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
-        Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
+    fun copyToClipboard(context: Context, text: String) {
+        val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clip.setPrimaryClip(ClipData.newPlainText("NovaRadar", text))
+        Toast.makeText(context, "Copied ${text.lines().size} IPs", Toast.LENGTH_SHORT).show()
     }
 
     fun exportToFile(context: Context, results: List<ProbeResult>, suffix: String): String? {
         try {
-            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            if (!downloadsDir.exists()) downloadsDir.mkdirs()
-            val dateStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val file = File(downloadsDir, "NovaRadar_$dateStr.txt")
-            val content = results.joinToString("\n") {
-                applySuffix(it.ip, it.port, suffix)
-            }
-            file.writeText(content)
-            return file.absolutePath
+            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            if (!dir.exists()) dir.mkdirs()
+            val name = "NovaRadar_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.txt"
+            val file = File(dir, name)
+            file.writeText(results.joinToString("\n") { applySuffix(it.ip, it.port, suffix) })
+            Toast.makeText(context, "Saved: $name", Toast.LENGTH_LONG).show()
+            return file.path
         } catch (_: Exception) { return null }
     }
 
-    fun formatForClipboard(results: List<ProbeResult>, suffix: String): String {
-        return results.joinToString("\n") { applySuffix(it.ip, it.port, suffix) }
-    }
+    fun formatList(results: List<ProbeResult>, suffix: String): String =
+        results.joinToString("\n") { applySuffix(it.ip, it.port, suffix) }
 
-    fun topResults(results: List<ProbeResult>, n: Int): List<ProbeResult> {
-        return results.sortedBy { it.tcpLatencyMs }.take(n)
-    }
+    fun topN(results: List<ProbeResult>, n: Int): List<ProbeResult> =
+        results.filter { it.isWorking }.sortedBy { it.tcpLatencyMs }.take(n)
 
-    fun greenResults(results: List<ProbeResult>): List<ProbeResult> {
-        return results.filter { it.grade.ordinal <= GradeOrdinal.C }
-    }
+    fun greens(results: List<ProbeResult>): List<ProbeResult> =
+        results.filter { it.isWorking && it.grade.ordinal <= GradeOrdinal.C }
 }
 
 private object GradeOrdinal { const val C = 3 }

@@ -13,6 +13,7 @@ val TextPrimary = Color(0xFFE6EDF3)
 val TextSecondary = Color(0xFF8B949E)
 val BorderColor = Color(0xFF30363D)
 
+val GradeSS = Color(0xFF76FF03)
 val GradeS = Color(0xFF00E676)
 val GradeA = Color(0xFF4CAF50)
 val GradeB = Color(0xFFFFC107)

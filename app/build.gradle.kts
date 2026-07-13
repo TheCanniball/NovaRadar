@@ -19,7 +19,7 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/release.jks"
+            val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/nova-scanner-key.jks"
             storeFile = file(keystorePath)
             storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
             keyAlias = System.getenv("KEY_ALIAS") ?: "release"
@@ -43,22 +43,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    buildFeatures {
-        compose = true
-    }
+    buildFeatures { compose = true }
 
-    lint {
-        checkReleaseBuilds = false
-        abortOnError = false
-    }
-}
-
-androidComponents {
-    onVariants { variant ->
-        variant.outputs.forEach { output ->
-            output.outputFileName.set("NovaRadar-v${appVersionName}-release.apk")
-        }
-    }
+    lint { checkReleaseBuilds = false; abortOnError = false }
 }
 
 dependencies {
@@ -79,6 +66,5 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.okhttp)
 
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
