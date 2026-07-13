@@ -39,7 +39,7 @@ jobs:
       - name: Read & bump version
         id: bumped
         run: |
-          VERSION=$(grep -oP 'appVersionName\s*=\s*"\K[^"]+' "nova radar android/app/build.gradle.kts")
+          VERSION=$(grep -oP 'appVersionName\s*=\s*"\K[^"]+' "app/build.gradle.kts")
           echo "Current: $VERSION"
           IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
           TYPE="${{ github.event.inputs.version_type }}"
@@ -51,15 +51,15 @@ jobs:
 
       - name: Update files
         run: |
-          sed -i "s/appVersionName = \".*\"/appVersionName = \"${{ steps.bumped.outputs.new_version }}\"/" "nova radar android/app/build.gradle.kts"
-          VC=$(grep -oP 'versionCode\s*=\s*\K\d+' "nova radar android/app/build.gradle.kts")
-          sed -i "s/versionCode = .*/versionCode = $((VC+1))/" "nova radar android/app/build.gradle.kts"
+          sed -i "s/appVersionName = \".*\"/appVersionName = \"${{ steps.bumped.outputs.new_version }}\"/" "app/build.gradle.kts"
+          VC=$(grep -oP 'versionCode\s*=\s*\K\d+' "app/build.gradle.kts")
+          sed -i "s/versionCode = .*/versionCode = $((VC+1))/" "app/build.gradle.kts"
 
       - name: Commit & tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "nova radar android/app/build.gradle.kts"
+          git add "app/build.gradle.kts"
           git commit -m "chore: bump version to ${{ steps.bumped.outputs.new_version }}"
           git tag -a "v${{ steps.bumped.outputs.new_version }}" -m "v${{ steps.bumped.outputs.new_version }}"
           git push origin "v${{ steps.bumped.outputs.new_version }}"
@@ -85,28 +85,25 @@ jobs:
 
       - name: Decode keystore
         run: |
-          mkdir -p "${{ github.workspace }}/nova radar android"
           if [ -n "${{ secrets.KEYSTORE_B64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_B64 }}" | base64 -d > "${{ github.workspace }}/nova radar android/nova-scanner-key.jks"
+            echo "${{ secrets.KEYSTORE_B64 }}" | base64 -d > "${{ github.workspace }}/nova-scanner-key.jks"
             echo "Keystore decoded from secret"
           else
             keytool -genkeypair -v \
-              -keystore "${{ github.workspace }}/nova radar android/nova-scanner-key.jks" \
+              -keystore "${{ github.workspace }}/nova-scanner-key.jks" \
               -alias nova-scanner -keyalg RSA -keysize 2048 -validity 10000 \
               -storepass "${{ secrets.KEYSTORE_PASSWORD }}" -keypass "${{ secrets.KEY_PASSWORD }}" \
               -dname "CN=NovaScanner, OU=Dev, O=NovaProxy, L=World, S=World, C=US"
-            echo "Temporary keystore generated (run scripts/setup-secrets.ps1 to store permanently)"
+            echo "Temporary keystore generated"
           fi
 
       - name: Grant execute permission
         run: chmod +x gradlew
-        working-directory: nova radar android
 
       - name: Build APKs + AAB
         run: ./gradlew assembleRelease bundleRelease
-        working-directory: nova radar android
         env:
-          KEYSTORE_PATH: ${{ github.workspace }}/nova radar android/nova-scanner-key.jks
+          KEYSTORE_PATH: ${{ github.workspace }}/nova-scanner-key.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -128,8 +125,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            nova radar android/app/build/outputs/apk/release/*.apk
-            nova radar android/app/build/outputs/bundle/release/*.aab
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
           tag_name: ${{ github.ref_name }}
           name: Nova Radar ${{ github.ref_name }}
           body: |
@@ -160,34 +157,4 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         continue-on-error: true
         run: |
-          chmod +x scripts/sync-upstream.sh
-          bash scripts/sync-upstream.sh .upstream/config.json || true
-          git push origin upstream-base --force 2>/dev/null || true
-
-      - name: Create upstream PR
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
-        run: |
-          PR_EXISTS=$(gh pr view 7 --repo IRNova/NovaRadar --json number 2>/dev/null || echo "")
-          BODY="## Nova Radar Android ${{ github.ref_name }}
-
-          Android port (Kotlin/Jetpack Compose) of IRNova/NovaRadar.
-
-          ### 📥 Download
-          [Download ${{ github.ref_name }}](${RELEASE_URL})
-
-          ##          # Source
-          https://github.com/TheCanniball/NovaRadar"
-          if [ -z "$PR_EXISTS" ]; then
-            gh pr create --repo IRNova/NovaRadar --head TheCanniball:NovaRadar:upstream-base --base main \
-              --title "Nova Radar Android ${{ github.ref_name }}" --body "$BODY" && \
-            gh pr merge 7 --repo IRNova/NovaRadar --squash --auto 2>/dev/null || true
-          else
-            gh pr edit 7 --repo IRNova/NovaRadar --title "Nova Radar Android ${{ github.ref_name }}" \
-              --body "Updated to ${{ github.ref_name }}
-
-          📥 [${{ github.ref_name }}](${RELEASE_URL})" && \
-            gh pr ready 7 --repo IRNova/NovaRadar 2>/dev/null || true
-          fi
+          git push origin main:upstream-base --force 2>/dev/null || true
