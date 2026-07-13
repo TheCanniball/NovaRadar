@@ -100,16 +100,16 @@ jobs:
       - name: Grant execute permission
         run: chmod +x gradlew
 
-      - name: Build APKs
-        run: ./gradlew assembleRelease
+      - name: Build AAB
+        run: ./gradlew bundleRelease
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/nova-scanner-key.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Build AAB
-        run: ./gradlew bundleRelease
+      - name: Build APKs
+        run: ./gradlew assembleRelease
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/nova-scanner-key.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
