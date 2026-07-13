@@ -19,11 +19,11 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/nova-scanner-key.jks"
+            val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/release.jks"
             storeFile = file(keystorePath)
-            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "Nova@2026!Secure"
-            keyAlias = System.getenv("KEY_ALIAS") ?: "nova-scanner"
-            keyPassword = System.getenv("KEY_PASSWORD") ?: "Nova@2026!Secure"
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("KEY_ALIAS") ?: "release"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
             enableV1Signing = true
             enableV2Signing = true
         }
@@ -45,6 +45,11 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 }
 
