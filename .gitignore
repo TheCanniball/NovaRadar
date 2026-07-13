@@ -7,7 +7,6 @@ KANBAN.md
 *.jks
 *.pem
 .env
-.env.example
 
 # Scripts (local dev only)
 scripts/
