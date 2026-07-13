@@ -6,12 +6,12 @@ import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novascanner.network.localization.Strings
+import com.novascanner.network.scanner.Grade
 import com.novascanner.network.scanner.IpGenerator
 import com.novascanner.network.scanner.ProbeResult
 import com.novascanner.network.scanner.ScannerEngine
+import com.novascanner.network.utils.AppSettings
 import com.novascanner.network.utils.ExportUtils
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,8 +21,24 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+data class ScanHistoryEntry(
+    val id: Long,
+    val timestamp: String,
+    val totalIps: Int,
+    val workingCount: Int,
+    val failedCount: Int,
+    val source: String
+)
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
+    val settings = AppSettings(application)
+
     private val _results = MutableStateFlow<List<ProbeResult>>(emptyList())
     val results: StateFlow<List<ProbeResult>> = _results.asStateFlow()
     private val _isScanning = MutableStateFlow(false)
@@ -33,6 +49,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val scanned: StateFlow<Int> = _scanned.asStateFlow()
     private val _total = MutableStateFlow(0)
     val total: StateFlow<Int> = _total.asStateFlow()
+    private val _failed = MutableStateFlow(0)
+    val failed: StateFlow<Int> = _failed.asStateFlow()
+    private val _startTime = MutableStateFlow(0L)
+    val startTime: StateFlow<Long> = _startTime.asStateFlow()
 
     val manualIps = MutableStateFlow("")
     val cidrInput = MutableStateFlow("104.16.0.0/12")
@@ -42,20 +62,60 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val sni = MutableStateFlow("speed.cloudflare.com")
     val suffix = MutableStateFlow("?ed=2560")
     val suffixOn = MutableStateFlow(true)
+    val sortBy = MutableStateFlow("latency")
+    val useManualIps = MutableStateFlow(true)
+    val filterGradeMin = MutableStateFlow("")
+
+    private val _scanHistory = MutableStateFlow<List<ScanHistoryEntry>>(emptyList())
+    val scanHistory: StateFlow<List<ScanHistoryEntry>> = _scanHistory.asStateFlow()
+    private var historyIdCounter = 0L
+    private var currentScanSource = ""
 
     private var scanJob: Job? = null
 
+    init {
+        manualIps.value = settings.manualIps
+        cidrInput.value = settings.cidr
+        port.value = settings.port
+        threads.value = settings.threads
+        timeout.value = settings.timeout
+        sni.value = settings.sni
+        suffix.value = settings.suffix
+        suffixOn.value = settings.suffixOn
+        Strings.isRtl = settings.isRtl
+        sortBy.value = settings.sortBy
+    }
+
+    fun persistSettings() {
+        settings.saveAll(port.value, threads.value, timeout.value, sni.value,
+            suffix.value, suffixOn.value, Strings.isRtl, manualIps.value, cidrInput.value)
+    }
+
+    fun toggleLang() {
+        Strings.isRtl = !Strings.isRtl
+        settings.isRtl = Strings.isRtl
+        persistSettings()
+    }
+
     fun startScan() {
         if (_isScanning.value) return
-        val ips = IpGenerator.parseManualIps(manualIps.value)
+        persistSettings()
+        val ips = if (useManualIps.value) {
+            currentScanSource = "Manual"
+            IpGenerator.parseManualIps(manualIps.value)
+        } else {
+            currentScanSource = cidrInput.value
+            IpGenerator.parseCidr(cidrInput.value)
+        }
         if (ips.isEmpty()) {
-            Toast.makeText(getApplication(), "Enter valid IPs", Toast.LENGTH_SHORT).show()
+            Toast.makeText(getApplication(),
+                if (useManualIps.value) "Enter valid IPs" else "Invalid CIDR range", Toast.LENGTH_SHORT).show()
             return
         }
         val engine = ScannerEngine(timeout.value.toLongOrNull() ?: 3000, sni.value.ifBlank { "speed.cloudflare.com" })
         val sem = Semaphore(threads.value.toIntOrNull() ?: 30)
         _isScanning.value = true; _results.value = emptyList()
-        _scanned.value = 0; _total.value = ips.size; _progress.value = 0f
+        _scanned.value = 0; _failed.value = 0; _total.value = ips.size; _progress.value = 0f; _startTime.value = System.currentTimeMillis()
 
         scanJob = viewModelScope.launch {
             ips.forEach { raw ->
@@ -66,26 +126,66 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         val p = IpGenerator.extractPort(raw, port.value.toIntOrNull() ?: 443)
                         val result = engine.probe(ip, p)
                         if (result.isWorking) _results.value = _results.value + result
+                        else _failed.value++
                         _scanned.value++
                         _progress.value = _scanned.value.toFloat() / ips.size
                     }
                 }
             }
-        }.also { it.invokeOnCompletion { _isScanning.value = false; _progress.value = 1f } }
+        }.also {
+            it.invokeOnCompletion {
+                _isScanning.value = false; _progress.value = 1f
+                addScanToHistory()
+                persistSettings()
+            }
+        }
     }
+
+    private fun addScanToHistory() {
+        val ts = SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
+        _scanHistory.value = _scanHistory.value + ScanHistoryEntry(
+            id = historyIdCounter++,
+            timestamp = ts,
+            totalIps = _total.value,
+            workingCount = _results.value.size,
+            failedCount = _failed.value,
+            source = currentScanSource
+        )
+    }
+
+    fun loadHistoryResult(entry: ScanHistoryEntry) {
+        Toast.makeText(getApplication(), "Results from $entry.timestamp: ${entry.workingCount} working", Toast.LENGTH_SHORT).show()
+    }
+
+    fun clearHistory() { _scanHistory.value = emptyList() }
 
     fun stopScan() { _isScanning.value = false; scanJob?.cancel() }
 
     private fun sfx(): String = if (suffixOn.value) suffix.value else ""
 
-    fun copyAll(c: Context) { ExportUtils.copyToClipboard(c, ExportUtils.formatList(_results.value, sfx())) }
-    fun copyTop10(c: Context) { ExportUtils.copyToClipboard(c, ExportUtils.formatList(ExportUtils.topN(_results.value, 10), sfx())) }
-    fun packGreens(c: Context) { ExportUtils.copyToClipboard(c, ExportUtils.formatList(ExportUtils.greens(_results.value), sfx())) }
-    fun exportTxt(c: Context) { ExportUtils.exportToFile(c, _results.value, sfx()) }
-    fun clearResults() { _results.value = emptyList() }
-    fun toggleLang() { Strings.isRtl = !Strings.isRtl }
+    fun filteredResults(): List<ProbeResult> {
+        val sorted = when (sortBy.value) {
+            "grade" -> _results.value.sortedBy { it.grade.ordinal }
+            "colo" -> _results.value.sortedBy { it.colo }
+            else -> _results.value.sortedBy { it.tcpLatencyMs }
+        }
+        val minGrade = filterGradeMin.value
+        if (minGrade.isBlank()) return sorted
+        val minOrdinal = Grade.entries.firstOrNull { it.display == minGrade }?.ordinal ?: return sorted
+        return sorted.filter { it.grade.ordinal <= minOrdinal }
+    }
 
-    // Worker deployment state
+    fun copyAll(c: Context) { ExportUtils.copyToClipboard(c, ExportUtils.formatList(filteredResults(), sfx())) }
+    fun copyTop10(c: Context) { ExportUtils.copyToClipboard(c, ExportUtils.formatList(ExportUtils.topN(filteredResults(), 10), sfx())) }
+    fun packGreens(c: Context) { ExportUtils.copyToClipboard(c, ExportUtils.formatList(ExportUtils.greens(filteredResults()), sfx())) }
+    fun exportTxt(c: Context) { ExportUtils.exportToFile(c, filteredResults(), sfx()) }
+    fun copyIp(c: Context, result: ProbeResult) {
+        ExportUtils.copyToClipboard(c, ExportUtils.applySuffix(result.ip, result.port, sfx()))
+    }
+    fun clearResults() { _results.value = emptyList() }
+
+    fun setSortBy(mode: String) { sortBy.value = mode; settings.sortBy = mode }
+
     private val _workerStatus = MutableStateFlow("")
     val workerStatus: StateFlow<String> = _workerStatus.asStateFlow()
     private val _workerUrl = MutableStateFlow("")
@@ -100,13 +200,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         if (isDemo) {
             val steps = listOf(
-                "🔑 ${if (isFa) "در حال اعتبارسنجی..." else "Authenticating..."}",
-                "🔓 ${if (isFa) "دسترسی تأیید شد." else "Access granted."}",
-                "👤 ${if (isFa) "دریافت حساب: Nova_Wizard" else "Account: Nova_Wizard"}",
-                "⚙️ ${if (isFa) "تولید کد پروکسی..." else "Generating proxy code..."}",
-                "📂 ${if (isFa) "آپلود به کلودفلر..." else "Uploading to Cloudflare..."}",
-                "📡 ${if (isFa) "تنظیم دامنه..." else "Setting up domain..."}",
-                "🎉 ${if (isFa) "راه‌اندازی کامل شد!" else "Setup complete!"}"
+                if (isFa) "🔑 در حال اعتبارسنجی..." else "🔑 Authenticating...",
+                if (isFa) "🔓 دسترسی تأیید شد." else "🔓 Access granted.",
+                if (isFa) "👤 حساب: Nova_Wizard" else "👤 Account: Nova_Wizard",
+                if (isFa) "⚙️ تولید کد پروکسی..." else "⚙️ Generating proxy code...",
+                if (isFa) "📂 آپلود به کلودفلر..." else "📂 Uploading to Cloudflare...",
+                if (isFa) "📡 تنظیم دامنه..." else "📡 Setting up domain...",
+                if (isFa) "🎉 راه‌اندازی کامل شد!" else "🎉 Setup complete!"
             )
             for (s in steps) { _workerStatus.value = s; kotlinx.coroutines.delay(800) }
             _workerUrl.value = "https://$name.nova-proxy-demo.workers.dev"
@@ -128,8 +228,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         _workerStatus.value = if (isFa) "خطا: ${resp.code}" else "Error: ${resp.code}"
                         _isDeploying.value = false; return@withContext
                     }
-                    val body = resp.body?.string() ?: ""
-                    val accId = Regex("\"id\":\"(\\w+)\"").find(body)?.groupValues?.getOrNull(1) ?: ""
+                    val accId = Regex("\"id\":\"(\\w+)\"").find(resp.body?.string() ?: "")?.groupValues?.getOrNull(1) ?: ""
                     if (accId.isEmpty()) {
                         _workerStatus.value = if (isFa) "حسابی یافت نشد" else "No account found"
                         _isDeploying.value = false; return@withContext
@@ -169,5 +268,4 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isDeploying.value = false
         }
     }
-
 }

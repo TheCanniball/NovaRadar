@@ -55,7 +55,12 @@ object Strings {
         "worker_url" to "Worker URL",
         "worker_success" to "Deployed Successfully!",
         "learn_more" to "Learn More",
-        "source_code" to "Source Code"
+        "source_code" to "Source Code",
+        "filter" to "Filter by grade",
+        "history" to "Scan History",
+        "clear_history" to "Clear History",
+        "elapsed" to "Elapsed",
+        "no_history" to "No scans yet"
     )
 
     private val fa = mapOf(
@@ -110,7 +115,12 @@ object Strings {
         "worker_url" to "آدرس ورکر",
         "worker_success" to "نصب با موفقیت انجام شد!",
         "learn_more" to "بیشتر بدانید",
-        "source_code" to "کد منبع"
+        "source_code" to "کد منبع",
+        "filter" to "فیلتر بر اساس درجه",
+        "history" to "تاریخچه اسکن",
+        "clear_history" to "پاک کردن تاریخچه",
+        "elapsed" to "زمان سپری شده",
+        "no_history" to "هنوز اسکنی انجام نشده"
     )
 
     fun get(key: String): String = (if (isRtl) fa else en)[key] ?: en[key] ?: key

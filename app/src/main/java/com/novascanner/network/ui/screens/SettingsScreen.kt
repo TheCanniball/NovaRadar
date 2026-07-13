@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,6 +26,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
     val threads by viewModel.threads.collectAsState()
     val timeout by viewModel.timeout.collectAsState()
     val sni by viewModel.sni.collectAsState()
+    val history by viewModel.scanHistory.collectAsState()
 
     Column(Modifier.fillMaxSize().background(Background).padding(16.dp).verticalScroll(rememberScrollState())) {
         Text(Strings.get("tab_settings"), color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -32,7 +34,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
 
         SectionTitle(Strings.get("suffix"))
         Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             NovaField(suffix, { viewModel.suffix.value = it }, Strings.get("suffix_hint"), Modifier.weight(1f))
             Spacer(Modifier.width(12.dp))
             Switch(checked = suffixOn, onCheckedChange = { viewModel.suffixOn.value = it },
@@ -58,5 +60,25 @@ fun SettingsScreen(viewModel: MainViewModel) {
         SectionTitle(Strings.get("lang"))
         Spacer(Modifier.height(8.dp))
         NovaButton(text = if (Strings.isRtl) "English" else "فارسی", onClick = { viewModel.toggleLang() })
+
+        if (history.isNotEmpty()) {
+            Spacer(Modifier.height(24.dp))
+            SectionTitle("Scan History")
+            Spacer(Modifier.height(8.dp))
+            history.reversed().take(10).forEach { entry ->
+                Card(shape = RoundedCornerShape(8.dp), colors = CardDefaults.cardColors(containerColor = Surface),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+                    Row(Modifier.padding(12.dp).fillMaxWidth()) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${entry.source}  •  ${entry.timestamp}", color = TextSecondary, fontSize = 11.sp)
+                            Text("${entry.workingCount} working / ${entry.failedCount} failed", color = TextPrimary, fontSize = 13.sp)
+                        }
+                        Text("${entry.totalIps}", color = Primary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            NovaButton("Clear History", onClick = { viewModel.clearHistory() }, color = Error)
+        }
     }
 }

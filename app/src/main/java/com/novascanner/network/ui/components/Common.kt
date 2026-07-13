@@ -1,12 +1,13 @@
 package com.novascanner.network.ui.components
 
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,12 +38,12 @@ fun NovaField(value: String, onValueChange: (String) -> Unit, label: String, mod
 }
 
 @Composable
-fun ProbeCard(result: ProbeResult, suffix: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ProbeCard(result: ProbeResult, suffix: String, onCopy: () -> Unit, modifier: Modifier = Modifier) {
     val gradeColor = when (result.grade) { Grade.SS -> GradeSS; Grade.S -> GradeS; Grade.A -> GradeA; Grade.B -> GradeB; Grade.C -> GradeC; Grade.D -> GradeD; Grade.F -> GradeF }
     val bg = if (result.isWorking) Surface else SurfaceVariant.copy(alpha = 0.5f)
-    Card(modifier = modifier.fillMaxWidth().clickable { onClick() }, shape = RoundedCornerShape(12.dp),
+    Card(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = bg)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(gradeColor.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center) {
                 Text(result.grade.display, color = gradeColor, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
@@ -56,9 +57,30 @@ fun ProbeCard(result: ProbeResult, suffix: String, onClick: () -> Unit, modifier
                 Text("${result.tcpLatencyMs}ms", color = gradeColor, fontWeight = FontWeight.Medium, fontSize = 13.sp)
                 if (result.colo.isNotBlank()) Text(result.colo, color = TextSecondary, fontSize = 11.sp)
             }
+            IconButton(onClick = onCopy) {
+                Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = TextSecondary, modifier = Modifier.size(18.dp))
+            }
         }
     }
 }
 
 @Composable
 fun SectionTitle(text: String) { Text(text, color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp) }
+
+@Composable
+fun PresetChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(color = if (selected) Primary.copy(alpha = 0.2f) else SurfaceVariant,
+        shape = RoundedCornerShape(8.dp), modifier = Modifier.clickable { onClick() }) {
+        Text(label, color = if (selected) Primary else TextSecondary, fontSize = 12.sp,
+            fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+    }
+}
+
+data class ScanPreset(val name: String, val cidr: String, val sni: String, val port: String)
+object Presets {
+    val cloudflare = ScanPreset("Cloudflare", "104.16.0.0/12", "speed.cloudflare.com", "443")
+    val cloudflare2 = ScanPreset("CF 2", "1.1.1.0/24", "cloudflare.com", "443")
+    val fastly = ScanPreset("Fastly", "151.101.0.0/16", "www.fastly.com", "443")
+    val akamai = ScanPreset("Akamai", "23.0.0.0/12", "www.akamai.com", "443")
+    val all = listOf(cloudflare, cloudflare2, fastly, akamai)
+}
