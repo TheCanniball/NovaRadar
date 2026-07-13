@@ -21,6 +21,23 @@ class ScannerEngine(
         .followRedirects(false)
         .build()
 
+    fun pingOnly(ip: String, port: Int = 443, callback: (ProbeResult) -> Unit) {
+        Thread {
+            val start = System.currentTimeMillis()
+            try {
+                val socket = Socket().apply {
+                    connect(InetSocketAddress(ip, port), timeoutMs.toInt())
+                    soTimeout = timeoutMs.toInt()
+                }
+                val tcpTime = System.currentTimeMillis() - start
+                socket.close()
+                callback(ProbeResult(ip, port, tcpTime, 0, 0, Grade.fromLatency(tcpTime, 0, 0), isWorking = true))
+            } catch (_: Exception) {
+                callback(ProbeResult(ip, port, isWorking = false))
+            }
+        }.start()
+    }
+
     suspend fun probe(ip: String, port: Int = 443): ProbeResult = withContext(Dispatchers.IO) {
         val start = System.currentTimeMillis()
         try {

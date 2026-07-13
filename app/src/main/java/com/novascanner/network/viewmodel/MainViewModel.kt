@@ -70,6 +70,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val filterGradeMin = MutableStateFlow("")
     val resultsSearch = MutableStateFlow("")
     val favoriteIds = MutableStateFlow<Set<String>>(emptySet())
+    val sampleSize = MutableStateFlow("50")
+    val autoCopyBest = MutableStateFlow(false)
 
     private val _scanHistory = MutableStateFlow<List<ScanHistoryEntry>>(emptyList())
     val scanHistory: StateFlow<List<ScanHistoryEntry>> = _scanHistory.asStateFlow()
@@ -89,11 +91,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         suffixOn.value = settings.suffixOn
         Strings.isRtl = settings.isRtl
         sortBy.value = settings.sortBy
+        sampleSize.value = settings.sampleSize
+        autoCopyBest.value = settings.autoCopyBest
     }
 
     fun persistSettings() {
         settings.saveAll(port.value, threads.value, timeout.value, sni.value,
-            suffix.value, suffixOn.value, Strings.isRtl, manualIps.value, cidrInput.value)
+            suffix.value, suffixOn.value, Strings.isRtl, manualIps.value, cidrInput.value,
+            sampleSize.value, autoCopyBest.value)
     }
 
     fun toggleLang() {
@@ -110,7 +115,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             IpGenerator.parseManualIps(manualIps.value)
         } else {
             currentScanSource = cidrInput.value
-            IpGenerator.parseCidr(cidrInput.value)
+            IpGenerator.parseCidr(cidrInput.value, sampleSize.value.toIntOrNull() ?: 50)
         }
         if (ips.isEmpty()) {
             Toast.makeText(getApplication(),
@@ -141,6 +146,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             it.invokeOnCompletion {
                 _isScanning.value = false; _progress.value = 1f
                 addScanToHistory()
+                if (autoCopyBest.value && _results.value.isNotEmpty()) {
+                    val best = ExportUtils.topN(_results.value, 10)
+                    ExportUtils.copyToClipboard(getApplication(), ExportUtils.formatList(best, sfx()))
+                }
                 persistSettings()
             }
         }
@@ -213,6 +222,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearResults() { _results.value = emptyList() }
 
     fun setSortBy(mode: String) { sortBy.value = mode; settings.sortBy = mode }
+
+    // ── Scan profiles ──
+    val scanProfiles = MutableStateFlow<List<AppSettings.ScanProfile>>(emptyList())
+
+    fun loadProfiles() { scanProfiles.value = settings.loadProfiles() }
+
+    fun saveProfile(name: String) {
+        val profiles = settings.loadProfiles().toMutableList()
+        profiles.removeAll { it.name == name }
+        profiles.add(0, AppSettings.ScanProfile(name, cidrInput.value, port.value, sni.value, threads.value, timeout.value))
+        settings.saveProfiles(profiles.take(20))
+        scanProfiles.value = settings.loadProfiles()
+    }
+
+    fun deleteProfile(name: String) {
+        val profiles = settings.loadProfiles().toMutableList()
+        profiles.removeAll { it.name == name }
+        settings.saveProfiles(profiles)
+        scanProfiles.value = settings.loadProfiles()
+    }
+
+    fun applyProfile(p: AppSettings.ScanProfile) {
+        cidrInput.value = p.cidr; port.value = p.port; sni.value = p.sni
+        threads.value = p.threads; timeout.value = p.timeout
+    }
 
     // ── Worker deployment state ──
     private val _workerStatus = MutableStateFlow("")

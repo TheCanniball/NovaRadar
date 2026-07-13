@@ -3,6 +3,8 @@ package com.novascanner.network.utils
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import org.json.JSONArray
+import org.json.JSONObject
 
 class AppSettings(context: Context) {
     private val prefs: SharedPreferences =
@@ -48,19 +50,48 @@ class AppSettings(context: Context) {
         get() = prefs.getString("sort_by", "latency") ?: "latency"
         set(v) { prefs.edit { putString("sort_by", v) } }
 
+    var sampleSize: String
+        get() = prefs.getString("sample_size", "50") ?: "50"
+        set(v) { prefs.edit { putString("sample_size", v) } }
+
+    var autoCopyBest: Boolean
+        get() = prefs.getBoolean("auto_copy_best", false)
+        set(v) { prefs.edit { putBoolean("auto_copy_best", v) } }
+
     fun saveAll(port: String, threads: String, timeout: String, sni: String,
                 suffix: String, suffixOn: Boolean, isRtl: Boolean,
-                manualIps: String, cidr: String) {
+                manualIps: String, cidr: String, sampleSize: String, autoCopyBest: Boolean) {
         prefs.edit {
-            putString("port", port)
-            putString("threads", threads)
-            putString("timeout", timeout)
-            putString("sni", sni)
-            putString("suffix", suffix)
-            putBoolean("suffix_on", suffixOn)
-            putBoolean("is_rtl", isRtl)
-            putString("manual_ips", manualIps)
-            putString("cidr", cidr)
+            putString("port", port); putString("threads", threads)
+            putString("timeout", timeout); putString("sni", sni)
+            putString("suffix", suffix); putBoolean("suffix_on", suffixOn)
+            putBoolean("is_rtl", isRtl); putString("manual_ips", manualIps)
+            putString("cidr", cidr); putString("sample_size", sampleSize)
+            putBoolean("auto_copy_best", autoCopyBest)
         }
+    }
+
+    // ── Scan profiles ──
+    data class ScanProfile(val name: String, val cidr: String, val port: String, val sni: String, val threads: String, val timeout: String)
+
+    fun loadProfiles(): List<ScanProfile> {
+        val raw = prefs.getString("scan_profiles", "[]") ?: "[]"
+        val arr = try { JSONArray(raw) } catch (_: Exception) { return emptyList() }
+        return (0 until arr.length()).mapNotNull { i ->
+            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            ScanProfile(o.optString("name", ""), o.optString("cidr", ""), o.optString("port", "443"),
+                o.optString("sni", "speed.cloudflare.com"), o.optString("threads", "30"), o.optString("timeout", "3000"))
+        }.filter { it.name.isNotBlank() }
+    }
+
+    fun saveProfiles(profiles: List<ScanProfile>) {
+        val arr = JSONArray()
+        profiles.forEach { p ->
+            arr.put(JSONObject().apply {
+                put("name", p.name); put("cidr", p.cidr); put("port", p.port)
+                put("sni", p.sni); put("threads", p.threads); put("timeout", p.timeout)
+            })
+        }
+        prefs.edit { putString("scan_profiles", arr.toString()) }
     }
 }

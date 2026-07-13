@@ -4,7 +4,7 @@ import kotlin.random.Random
 import kotlin.math.pow
 
 object IpGenerator {
-    fun parseCidr(cidr: String): List<String> {
+    fun parseCidr(cidr: String, maxSamples: Int = 50): List<String> {
         try {
             val parts = cidr.trim().split("/")
             if (parts.size != 2) return emptyList()
@@ -16,7 +16,7 @@ object IpGenerator {
             val hostBits = 32 - mask
             val maxHosts = (2.0.pow(hostBits)).toLong()
             val network = base shr hostBits shl hostBits
-            val count = minOf(50, maxHosts.toInt() - 1).coerceAtLeast(1)
+            val count = minOf(maxSamples, maxHosts.toInt() - 1).coerceAtLeast(1)
             val ips = mutableSetOf<String>()
             while (ips.size < count) {
                 val offset = if (maxHosts <= 1) 0 else Random.nextLong(maxHosts - 1) + 1
