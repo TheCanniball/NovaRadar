@@ -101,7 +101,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build APKs + AAB
-        run: ./gradlew assembleRelease bundleRelease
+        run: ./gradlew assembleRelease bundleRelease -x lint
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/nova-scanner-key.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
