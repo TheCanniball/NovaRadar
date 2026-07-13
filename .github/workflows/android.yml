@@ -89,26 +89,30 @@ jobs:
       - name: Decode keystore
         run: |
           mkdir -p "${{ github.workspace }}/nova-radar-android-app"
-          rm -f "${{ github.workspace }}/nova-radar-android-app/release.jks"
-          keytool -genkeypair -v \
-            -keystore "${{ github.workspace }}/nova-radar-android-app/release.jks" \
-            -alias nova-radar -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass 123456 -keypass 123456 \
-            -dname CN=NovaRadar,OU=Dev,O=NovaProxy,L=World,S=World,C=US
-          echo "Keystore generated"
+          if [ -n "${{ secrets.KEYSTORE_B64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_B64 }}" | base64 -d > "${{ github.workspace }}/nova-radar-android-app/nova-scanner-key.jks"
+            echo "Keystore decoded from secret"
+          else
+            keytool -genkeypair -v \
+              -keystore "${{ github.workspace }}/nova-radar-android-app/nova-scanner-key.jks" \
+              -alias nova-scanner -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "${{ secrets.KEYSTORE_PASSWORD }}" -keypass "${{ secrets.KEY_PASSWORD }}" \
+              -dname "CN=NovaScanner, OU=Dev, O=NovaProxy, L=World, S=World, C=US"
+            echo "Temporary keystore generated (run scripts/setup-secrets.ps1 to store permanently)"
+          fi
 
       - name: Grant execute permission
         run: chmod +x gradlew
         working-directory: nova-radar-android-app
 
       - name: Build APKs + AAB
-        run: ./gradlew assembleRelease bundleRelease --stacktrace
+        run: ./gradlew assembleRelease bundleRelease
         working-directory: nova-radar-android-app
         env:
-          KEYSTORE_PATH: ${{ github.workspace }}/nova-radar-android-app/release.jks
-          KEYSTORE_PASSWORD: 123456
-          KEY_ALIAS: nova-radar
-          KEY_PASSWORD: 123456
+          KEYSTORE_PATH: ${{ github.workspace }}/nova-radar-android-app/nova-scanner-key.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Generate release notes
         id: notes
@@ -177,10 +181,10 @@ jobs:
           ### 📥 Download
           [Download ${{ github.ref_name }}](${RELEASE_URL})
 
-          ### Source
-          https://github.com/mohammadmehrani/NovaRadar"
+          ##          # Source
+          https://github.com/TheCanniball/NovaRadar"
           if [ -z "$PR_EXISTS" ]; then
-            gh pr create --repo IRNova/NovaRadar --head mohammadmehrani:NovaRadar:upstream-base --base main \
+            gh pr create --repo IRNova/NovaRadar --head TheCanniball:NovaRadar:upstream-base --base main \
               --title "Nova Radar Android ${{ github.ref_name }}" --body "$BODY" && \
             gh pr merge 7 --repo IRNova/NovaRadar --squash --auto 2>/dev/null || true
           else
