@@ -1,49 +1,38 @@
-# Nova Radar 🛰️
+# Nova Radar – Android IP Scanner
 
-**شکارچی آی‌پی‌های سالم برای اینترنت آزاد**
+A powerful Android IP scanner with real-time TCP/TLS verification. Scan Cloudflare IP ranges, test latency, and export results with Nova Proxy suffix or plain IP:Port format.
 
-Nova Radar یک اپلیکیشن اندروید برای اسکن و شناسایی آی‌پی‌های سالم از میان سرویس‌های CDN مانند کلودفلر، آکامای و ورسل است. با رابط کاربری مدرن و رادار زنده، سریع‌ترین راه برای پیدا کردن آی‌پی‌های تمیز و قابل استفاده است.
+## Features
 
-## ✨ ویژگی‌ها
+- **Two-Phase Scanning**: Quick TCP connect + deep TLS handshake verification
+- **Multiple IP Sources**: Cloudflare, Akamai, Vercel CIDR ranges
+- **Dual Output**: Nova Proxy suffix (`#Nova-id`) or plain `ip:port`
+- **Real-time Results**: Live probe feed, latency sorting, operator detection
+- **Modern UI**: Material 3 with dark/light theme, Persian/English support
+- **Import IP**: Manual paste or auto-generate by operator (MCI, MTN, ICT)
+- **Cloudflare Worker Deployment**: Deploy VLESS proxy directly from the app
+- **Speed Test**: Per-IP latency and bandwidth testing
 
-- **اسکنر دو مرحله‌ای**: TCP quick scan + TLS deep test با SNI سفارشی
-- **رادار تعاملی**: نمایش زنده آی‌پی‌های پیدا شده با انیمیشن sweep
-- **۳ منبع آی‌پی**: کلودفلر (۴۵ رنج), آکامای, ورسل — قابل انتخاب جداگانه
-- **پشتیبانی از ۱۲ پورت**: 80, 443, 2053, 2083, 2087, 2096, 8443 و ...
-- **خروجی تمیز**: نمایش پروتکل, پورت و پینگ برای هر آی‌پی
-- **ذخیره و اشتراک‌گذاری**: کپی خروجی با یک کلیک
-- **حالت شب و روز**: تم تیره و روشن با طراحی مدرن
-- **زبان فارسی و انگلیسی**: پشتیبانی کامل از راست‌چین
+## Download
 
-## 📥 نصب
+[Latest Release](https://github.com/TheCanniball/NovaRadar/releases)
 
-آخرین نسخه را از [بخش Releases](https://github.com/mohammadmehrani/NovaRadar/releases) دانلود کنید.
+## Build
 
-فایل `NovaRadar-v*-arm64-v8a-release.apk` را نصب کنید.
+```bash
+cd "nova radar android"
+./gradlew assembleRelease
+```
 
-## 🚀 شروع سریع
+## Tech Stack
 
-1. اپ را باز کنید
-2. مطمئن شوید سورس "کلودفلر" فعال است
-3. پورت‌های مورد نظر را انتخاب کنید
-4. دکمه شروع را بزنید
-5. منتظر بمانید تا اسکنر آی‌پی‌های سالم را پیدا کند
+- **Language**: Kotlin
+- **UI**: Jetpack Compose + Material 3
+- **Architecture**: MVVM + Repository + Room
+- **Scanner**: Raw sockets (TCP) + SSLContext (TLS)
+- **Min SDK**: 24 (Android 7.0)
+- **Package**: `com.novascanner.network`
 
-## 📱 تصاویر
+## License
 
-_(اسکرین‌شات‌ها به زودی اضافه می‌شوند)_
-
-## 🛠 تکنولوژی‌ها
-
-- Kotlin + Jetpack Compose
-- Material Design 3
-- Room Database
-- معماری MVVM
-
-## 📄 لایسنس
-
-این پروژه تحت لایسنس MIT منتشر شده است.
-
----
-
-**Nova Radar** — با عشق برای جامعه اینترنت آزاد ایران ساخته شده ♥
+MIT

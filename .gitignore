@@ -1,37 +1,32 @@
-*.iml
-.gradle
-.kotlin
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
-.env
-debug.keystore
-.roadmap.md
-*.apk
+# Project management (local only)
+DEV.md
+AGENTS.md
+KANBAN.md
+
+# Keystores & secrets
 *.jks
-*.keystore
+*.pem
+.env
+.env.example
+
+# Scripts (local dev only)
+scripts/
+.upstream/
+
+# Reference files
+scanner core.html
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
 .idea/
-/build/reports/
-**/build/reports/
-.githooks/
-DEV_NOTES.md
-nova-radar-android-app/DEVELOPER_GUIDE.md
-nova-radar-android-app/DEVELOPMENT_ROADMAP.md
-nova-radar-android-app/icon/
-nova-radar-android-app/metadata.json
-nova-radar-android-app/upload-key.pem
+*.iml
+.vscode/
 
-# Upstream sync cache
-.upstream/last-sync-files.txt
-
-source/
+# Build outputs
+build/
+*/build/
+.gradle/
+local.properties

@@ -39,7 +39,7 @@ jobs:
       - name: Read & bump version
         id: bumped
         run: |
-          VERSION=$(grep -oP 'appVersionName\s*=\s*"\K[^"]+' nova-radar-android-app/app/build.gradle.kts)
+          VERSION=$(grep -oP 'appVersionName\s*=\s*"\K[^"]+' "nova radar android/app/build.gradle.kts")
           echo "Current: $VERSION"
           IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
           TYPE="${{ github.event.inputs.version_type }}"
@@ -51,18 +51,15 @@ jobs:
 
       - name: Update files
         run: |
-          sed -i "s/appVersionName = \".*\"/appVersionName = \"${{ steps.bumped.outputs.new_version }}\"/" nova-radar-android-app/app/build.gradle.kts
-          VC=$(grep -oP 'versionCode\s*=\s*\K\d+' nova-radar-android-app/app/build.gradle.kts)
-          sed -i "s/versionCode = .*/versionCode = $((VC+1))/" nova-radar-android-app/app/build.gradle.kts
-          sed -i "s/Version: ${{ steps.bumped.outputs.new_version }}/Version: ${{ steps.bumped.outputs.new_version }}/" AGENTS.md 2>/dev/null || true
-          # Update version history in AGENTS.md
-          sed -i "s/| [0-9.]* | 2026-[0-9-]* | .*/| ${{ steps.bumped.outputs.new_version }} | $(date +%F) | Automated release |/" AGENTS.md 2>/dev/null || true
+          sed -i "s/appVersionName = \".*\"/appVersionName = \"${{ steps.bumped.outputs.new_version }}\"/" "nova radar android/app/build.gradle.kts"
+          VC=$(grep -oP 'versionCode\s*=\s*\K\d+' "nova radar android/app/build.gradle.kts")
+          sed -i "s/versionCode = .*/versionCode = $((VC+1))/" "nova radar android/app/build.gradle.kts"
 
       - name: Commit & tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add nova-radar-android-app/app/build.gradle.kts AGENTS.md 2>/dev/null || git add nova-radar-android-app/app/build.gradle.kts
+          git add "nova radar android/app/build.gradle.kts"
           git commit -m "chore: bump version to ${{ steps.bumped.outputs.new_version }}"
           git tag -a "v${{ steps.bumped.outputs.new_version }}" -m "v${{ steps.bumped.outputs.new_version }}"
           git push origin "v${{ steps.bumped.outputs.new_version }}"
@@ -88,13 +85,13 @@ jobs:
 
       - name: Decode keystore
         run: |
-          mkdir -p "${{ github.workspace }}/nova-radar-android-app"
+          mkdir -p "${{ github.workspace }}/nova radar android"
           if [ -n "${{ secrets.KEYSTORE_B64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_B64 }}" | base64 -d > "${{ github.workspace }}/nova-radar-android-app/nova-scanner-key.jks"
+            echo "${{ secrets.KEYSTORE_B64 }}" | base64 -d > "${{ github.workspace }}/nova radar android/nova-scanner-key.jks"
             echo "Keystore decoded from secret"
           else
             keytool -genkeypair -v \
-              -keystore "${{ github.workspace }}/nova-radar-android-app/nova-scanner-key.jks" \
+              -keystore "${{ github.workspace }}/nova radar android/nova-scanner-key.jks" \
               -alias nova-scanner -keyalg RSA -keysize 2048 -validity 10000 \
               -storepass "${{ secrets.KEYSTORE_PASSWORD }}" -keypass "${{ secrets.KEY_PASSWORD }}" \
               -dname "CN=NovaScanner, OU=Dev, O=NovaProxy, L=World, S=World, C=US"
@@ -103,13 +100,13 @@ jobs:
 
       - name: Grant execute permission
         run: chmod +x gradlew
-        working-directory: nova-radar-android-app
+        working-directory: nova radar android
 
       - name: Build APKs + AAB
         run: ./gradlew assembleRelease bundleRelease
-        working-directory: nova-radar-android-app
+        working-directory: nova radar android
         env:
-          KEYSTORE_PATH: ${{ github.workspace }}/nova-radar-android-app/nova-scanner-key.jks
+          KEYSTORE_PATH: ${{ github.workspace }}/nova radar android/nova-scanner-key.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -131,8 +128,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            nova-radar-android-app/app/build/outputs/apk/release/*.apk
-            nova-radar-android-app/app/build/outputs/bundle/release/*.aab
+            nova radar android/app/build/outputs/apk/release/*.apk
+            nova radar android/app/build/outputs/bundle/release/*.aab
           tag_name: ${{ github.ref_name }}
           name: Nova Radar ${{ github.ref_name }}
           body: |
