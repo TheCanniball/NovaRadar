@@ -93,6 +93,36 @@ fun AboutScreen() {
             ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/IRNova/Nova-Proxy")))
         }, modifier = Modifier.fillMaxWidth(), color = SurfaceVariant)
 
+        Spacer(Modifier.height(12.dp))
+
+        Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Surface)) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Downloads", color = Primary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Spacer(Modifier.height(6.dp))
+                Text("Download the latest APK for your device:", color = TextSecondary, fontSize = 13.sp)
+                Spacer(Modifier.height(10.dp))
+                val releasesUrl = "https://github.com/TheCanniball/NovaRadar/releases/tag/v1.0.0"
+                val apks = listOf(
+                    "Universal" to "NovaRadar-v1.0.0-universal.apk",
+                    "arm64-v8a" to "NovaRadar-v1.0.0-arm64-v8a.apk",
+                    "armeabi-v7a" to "NovaRadar-v1.0.0-armeabi-v7a.apk",
+                    "x86_64" to "NovaRadar-v1.0.0-x86_64.apk",
+                    "x86" to "NovaRadar-v1.0.0-x86.apk"
+                )
+                apks.forEachIndexed { i, (label, file) ->
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Text("${i + 1}.", color = TextSecondary, fontSize = 12.sp, modifier = Modifier.width(20.dp))
+                        Text(label, color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 13.sp, modifier = Modifier.width(90.dp))
+                        Text(file, color = TextSecondary, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                NovaButton("Download from GitHub", onClick = {
+                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(releasesUrl)))
+                }, modifier = Modifier.fillMaxWidth())
+            }
+        }
+
         Spacer(Modifier.height(8.dp))
 
         Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Surface)) {
