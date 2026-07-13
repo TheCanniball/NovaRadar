@@ -1,13 +1,15 @@
 package com.novascanner.network.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,29 +40,51 @@ fun NovaField(value: String, onValueChange: (String) -> Unit, label: String, mod
 }
 
 @Composable
-fun ProbeCard(result: ProbeResult, suffix: String, onCopy: () -> Unit, modifier: Modifier = Modifier) {
+fun ProbeCard(result: ProbeResult, suffix: String, onCopy: () -> Unit, isFavorite: Boolean, onToggleFavorite: () -> Unit, modifier: Modifier = Modifier) {
+    var expanded by remember { mutableStateOf(false) }
     val gradeColor = when (result.grade) { Grade.SS -> GradeSS; Grade.S -> GradeS; Grade.A -> GradeA; Grade.B -> GradeB; Grade.C -> GradeC; Grade.D -> GradeD; Grade.F -> GradeF }
     val bg = if (result.isWorking) Surface else SurfaceVariant.copy(alpha = 0.5f)
     Card(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = bg)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(gradeColor.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center) {
-                Text(result.grade.display, color = gradeColor, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(result.ip, color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                val sf = if (suffix.isBlank()) "" else suffix
-                Text("${result.ip}:${result.port}$sf", color = TextSecondary, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+        Column {
+            Row(modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 12.dp, bottom = 6.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(gradeColor.copy(alpha = 0.2f))
+                    .clickable { expanded = !expanded }, contentAlignment = Alignment.Center) {
+                    Text(result.grade.display, color = gradeColor, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f).clickable { expanded = !expanded }) {
+                    Text(result.ip, color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                    val sf = if (suffix.isBlank()) "" else suffix
+                    Text("${result.ip}:${result.port}$sf", color = TextSecondary, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                }
+                IconButton(onClick = onToggleFavorite) {
+                    Icon(if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                        contentDescription = "Favorite", tint = if (isFavorite) GradeB else TextSecondary, modifier = Modifier.size(18.dp))
+                }
+                IconButton(onClick = onCopy) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                }
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Text("${result.tcpLatencyMs}ms", color = gradeColor, fontWeight = FontWeight.Medium, fontSize = 13.sp)
-                if (result.colo.isNotBlank()) Text(result.colo, color = TextSecondary, fontSize = 11.sp)
-            }
-            IconButton(onClick = onCopy) {
-                Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = TextSecondary, modifier = Modifier.size(18.dp))
+            AnimatedVisibility(visible = expanded) {
+                Column(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 10.dp)) {
+                    HorizontalDivider(color = BorderColor, thickness = 0.5.dp)
+                    Spacer(Modifier.height(6.dp))
+                    DetailRow("TCP", "${result.tcpLatencyMs}ms", gradeColor)
+                    DetailRow("TLS", "${result.tlsLatencyMs}ms", TextSecondary)
+                    DetailRow("HTTP", "${result.httpLatencyMs}ms", TextSecondary)
+                    if (result.colo.isNotBlank()) DetailRow("Colo", result.colo, TextSecondary)
+                    DetailRow("Port", "${result.port}", TextSecondary)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String, valueColor: Color) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Text(label, color = TextSecondary, fontSize = 11.sp, modifier = Modifier.weight(1f))
+        Text(value, color = valueColor, fontSize = 11.sp, fontWeight = FontWeight.Medium)
     }
 }
 

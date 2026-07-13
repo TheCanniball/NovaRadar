@@ -7,7 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +39,8 @@ fun RadarScreen(viewModel: MainViewModel) {
     val manualIps by viewModel.manualIps.collectAsState()
     val filterGrade by viewModel.filterGradeMin.collectAsState()
     val startTime by viewModel.startTime.collectAsState()
+    val searchQuery by viewModel.resultsSearch.collectAsState()
+    val favorites by viewModel.favoriteIds.collectAsState()
     val ctx = LocalContext.current
     val sf = if (suffixOn) suffix else ""
     var showSortMenu by remember { mutableStateOf(false) }
@@ -129,17 +132,23 @@ fun RadarScreen(viewModel: MainViewModel) {
                     }
                 }
                 Spacer(Modifier.height(6.dp))
+                NovaField(searchQuery, { viewModel.resultsSearch.value = it }, "Search IP / Colo / Grade",
+                    Modifier.fillMaxWidth(), singleLine = true)
+                Spacer(Modifier.height(6.dp))
             }
             if (!isScanning) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                    NovaButton(Strings.get("copy_all"), onClick = { viewModel.copyAll(ctx) }, modifier = Modifier.weight(1f))
-                    NovaButton(Strings.get("copy_top10"), onClick = { viewModel.copyTop10(ctx) }, modifier = Modifier.weight(1f))
+                    NovaButton(Strings.get("pack_greens"), onClick = { viewModel.packGreens(ctx) }, modifier = Modifier.weight(1f), color = Secondary)
+                    NovaButton("Share", onClick = { viewModel.shareResults(ctx) }, modifier = Modifier.weight(1f), color = Primary)
                 }
                 Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                    NovaButton(Strings.get("pack_greens"), onClick = { viewModel.packGreens(ctx) }, modifier = Modifier.weight(1f), color = Secondary)
-                    NovaButton(Strings.get("export_txt"), onClick = { viewModel.exportTxt(ctx) }, modifier = Modifier.weight(1f))
-                }
+                NovaButton("Generate VLESS Config (Top 10)",
+                    onClick = {
+                        val vless = viewModel.generateVlessConfigs(viewModel.filteredResults())
+                        val clip = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clip.setPrimaryClip(android.content.ClipData.newPlainText("VLESS", vless))
+                    },
+                    modifier = Modifier.fillMaxWidth(), color = Secondary)
             }
         }
 
@@ -150,7 +159,9 @@ fun RadarScreen(viewModel: MainViewModel) {
         } else {
             LazyColumn(Modifier.fillMaxSize().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(displayResults) { result ->
-                    ProbeCard(result, sf, onCopy = { viewModel.copyIp(ctx, result) })
+                    ProbeCard(result, sf, onCopy = { viewModel.copyIp(ctx, result) },
+                        isFavorite = viewModel.isFavorite(result.ip, result.port),
+                        onToggleFavorite = { viewModel.toggleFavorite(result.ip, result.port) })
                 }
             }
         }
