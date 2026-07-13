@@ -2786,7 +2786,7 @@ private fun AboutScreenLegacy(viewModel: NovaRadarViewModel) {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Image(
-                            painter = painterResource(id = com.novaradar.app.R.drawable.img_nova_radar_logo_1781975654739),
+                            painter = painterResource(id = com.novascanner.network.R.drawable.img_nova_radar_logo_1781975654739),
                             contentDescription = "Nova Radar N Logo",
                             modifier = Modifier.size(84.dp).clip(CircleShape).border(1.5.dp, Color(0xFF22D3EE), CircleShape),
                             contentScale = ContentScale.Fit
@@ -2807,7 +2807,7 @@ private fun AboutScreenLegacy(viewModel: NovaRadarViewModel) {
                             AboutLinkItem(title = "Wizard Website", subtitle = "https://novaproxy.online/install", icon = Icons.Outlined.Language, onClick = { try { uriHandler.openUri("https://novaproxy.online/install") } catch (e: Exception) { e.printStackTrace() } })
                         }
                         Spacer(Modifier.height(10.dp))
-                        Text(text = "v${com.novaradar.app.BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                        Text(text = "v${com.novascanner.network.BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                     }
                 }
 

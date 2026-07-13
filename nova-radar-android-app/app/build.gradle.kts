@@ -12,11 +12,11 @@ plugins {
 }
 
 android {
-    namespace = "com.novaradar.app"
+    namespace = "com.novascanner.network"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.novaproxy.scanner"
+        applicationId = "com.novascanner.network"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

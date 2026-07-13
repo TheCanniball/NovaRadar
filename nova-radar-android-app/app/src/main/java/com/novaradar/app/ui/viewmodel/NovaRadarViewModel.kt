@@ -163,7 +163,7 @@ class NovaRadarViewModel(application: Application) : AndroidViewModel(applicatio
             }
             
             val builder = NotificationCompat.Builder(getApplication<Application>(), channelId)
-                .setSmallIcon(com.novaradar.app.R.drawable.img_nova_radar_logo_1781975654739)
+                .setSmallIcon(com.novascanner.network.R.drawable.img_nova_radar_logo_1781975654739)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)

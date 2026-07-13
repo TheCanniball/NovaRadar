@@ -43,7 +43,7 @@ fun AboutScreen(viewModel: NovaRadarViewModel) {
         WidgetCard(isLightTheme = isLight, modifier = Modifier.weight(1f)) {
             Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Image(
-                    painter = painterResource(id = com.novaradar.app.R.drawable.img_nova_radar_logo_1781975654739),
+                    painter = painterResource(id = com.novascanner.network.R.drawable.img_nova_radar_logo_1781975654739),
                     contentDescription = "Logo",
                     modifier = Modifier.size(80.dp).clip(CircleShape).border(2.dp, Wc.primary.copy(alpha = 0.5f), CircleShape),
                     contentScale = ContentScale.Fit
@@ -52,7 +52,7 @@ fun AboutScreen(viewModel: NovaRadarViewModel) {
                 Text("NOVA RADAR", fontSize = 20.sp, fontWeight = FontWeight.Black, color = Wc.primary)
                 Text(Localization.get("about_sub", lang), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = txtSecondary)
                 Spacer(Modifier.height(8.dp))
-                Text("v${com.novaradar.app.BuildConfig.VERSION_NAME}", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = txtSecondary.copy(alpha = 0.7f))
+                Text("v${com.novascanner.network.BuildConfig.VERSION_NAME}", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = txtSecondary.copy(alpha = 0.7f))
             }
         }
 
