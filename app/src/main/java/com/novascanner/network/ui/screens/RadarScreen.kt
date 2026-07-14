@@ -1,5 +1,7 @@
 package com.novascanner.network.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -21,6 +23,7 @@ import com.novascanner.network.localization.Strings
 import com.novascanner.network.scanner.Grade
 import com.novascanner.network.ui.components.*
 import com.novascanner.network.ui.theme.*
+import com.novascanner.network.utils.Ob
 import com.novascanner.network.viewmodel.MainViewModel
 
 @Composable
@@ -42,24 +45,26 @@ fun RadarScreen(viewModel: MainViewModel) {
     val searchQuery by viewModel.resultsSearch.collectAsState()
     val favorites by viewModel.favoriteIds.collectAsState()
     val ctx = LocalContext.current
+    val b = MaterialTheme.colorScheme
     val sf = if (suffixOn) suffix else ""
     var showSortMenu by remember { mutableStateOf(false) }
 
     val displayResults = viewModel.filteredResults()
     val elapsed = if (isScanning && startTime > 0) "${(System.currentTimeMillis() - startTime) / 1000}s" else ""
+    val animatedProgress by animateFloatAsState(targetValue = progress, animationSpec = tween(300))
 
-    Column(Modifier.fillMaxSize().background(Background).padding(16.dp)) {
+    Column(Modifier.fillMaxSize().background(b.background).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text("Nova Radar", color = Primary, fontWeight = FontWeight.Bold, fontSize = 22.sp, modifier = Modifier.weight(1f))
-            Text("${results.size} ${Strings.get("ips_found")}", color = TextSecondary, fontSize = 13.sp)
+            Text("Nova Radar", color = b.primary, fontWeight = FontWeight.Bold, fontSize = 22.sp, modifier = Modifier.weight(1f))
+            Text("${results.size} ${Strings.get("ips_found")}", color = b.onSurfaceVariant, fontSize = 13.sp)
         }
         Spacer(Modifier.height(4.dp))
 
         if (isScanning) {
-            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(4.dp), color = Primary, trackColor = SurfaceVariant)
+            LinearProgressIndicator(progress = { animatedProgress }, modifier = Modifier.fillMaxWidth().height(4.dp), color = b.primary, trackColor = b.outline.copy(alpha = 0.3f))
             Spacer(Modifier.height(4.dp))
             Row(Modifier.fillMaxWidth()) {
-                Text("$scanned / $total  $elapsed", color = TextSecondary, fontSize = 12.sp)
+                Text("$scanned / $total  $elapsed", color = b.onSurfaceVariant, fontSize = 12.sp)
                 Spacer(Modifier.weight(1f))
                 Text("${Strings.get("failed")}: $failed", color = Error, fontSize = 12.sp)
             }
@@ -70,16 +75,16 @@ fun RadarScreen(viewModel: MainViewModel) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             NovaButton(Strings.get(if (isScanning) "stop_scan" else "start_scan"),
                 onClick = { if (isScanning) viewModel.stopScan() else viewModel.startScan() },
-                modifier = Modifier.weight(1f), color = if (isScanning) Error else Primary)
+                modifier = Modifier.weight(1f), color = if (isScanning) Error else b.primary)
             Spacer(Modifier.width(8.dp))
             Box {
                 IconButton(onClick = { showSortMenu = true }) {
-                    Text("⇅", color = Primary, fontSize = 20.sp)
+                    Text("⇅", color = b.primary, fontSize = 20.sp)
                 }
                 DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
                     listOf("latency", "grade", "colo").forEach { mode ->
                         DropdownMenuItem(
-                            text = { Text(mode.uppercase(), color = if (sortBy == mode) Primary else TextPrimary) },
+                            text = { Text(mode.uppercase(), color = if (sortBy == mode) b.primary else b.onSurface) },
                             onClick = { viewModel.setSortBy(mode); showSortMenu = false })
                     }
                 }
@@ -89,15 +94,15 @@ fun RadarScreen(viewModel: MainViewModel) {
         if (!isScanning) {
             Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (useManual) Strings.get("manual_ip") else Strings.get("cidr_scan"),
-                    color = if (useManual) Primary else TextSecondary, fontSize = 13.sp,
+                Text(if (useManual) Strings.get("manual_ip") else Strings.get("manual_ip"),
+                    color = if (useManual) b.primary else b.onSurfaceVariant, fontSize = 13.sp,
                     modifier = Modifier.clickable { viewModel.useManualIps.value = true })
                 Spacer(Modifier.width(4.dp))
                 Switch(checked = useManual, onCheckedChange = { viewModel.useManualIps.value = it },
-                    colors = SwitchDefaults.colors(checkedTrackColor = Primary))
+                    colors = SwitchDefaults.colors(checkedTrackColor = b.primary))
                 Spacer(Modifier.width(4.dp))
                 Text(if (!useManual) Strings.get("cidr_scan") else Strings.get("cidr_scan"),
-                    color = if (!useManual) Primary else TextSecondary, fontSize = 13.sp,
+                    color = if (!useManual) b.primary else b.onSurfaceVariant, fontSize = 13.sp,
                     modifier = Modifier.clickable { viewModel.useManualIps.value = false })
             }
             Spacer(Modifier.height(6.dp))
@@ -139,14 +144,14 @@ fun RadarScreen(viewModel: MainViewModel) {
             if (!isScanning) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                     NovaButton(Strings.get("pack_greens"), onClick = { viewModel.packGreens(ctx) }, modifier = Modifier.weight(1f), color = Secondary)
-                    NovaButton("Share", onClick = { viewModel.shareResults(ctx) }, modifier = Modifier.weight(1f), color = Primary)
+                    NovaButton("Share", onClick = { viewModel.shareResults(ctx) }, modifier = Modifier.weight(1f), color = b.primary)
                 }
                 Spacer(Modifier.height(6.dp))
-                NovaButton("Generate VLESS Config (Top 10)",
+                NovaButton(Ob.s("PR8UHwgbDh9aLDY/KSlaORUUHBMdWlIuFQpaS0pT"),
                     onClick = {
                         val vless = viewModel.generateVlessConfigs(viewModel.filteredResults())
                         val clip = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        clip.setPrimaryClip(android.content.ClipData.newPlainText("VLESS", vless))
+                        clip.setPrimaryClip(android.content.ClipData.newPlainText(Ob.s("LDY/KSk"), vless))
                     },
                     modifier = Modifier.fillMaxWidth(), color = Secondary)
             }
@@ -154,7 +159,7 @@ fun RadarScreen(viewModel: MainViewModel) {
 
         if (displayResults.isEmpty() && !isScanning) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(Strings.get("no_results"), color = TextSecondary)
+                Text(Strings.get("no_results"), color = b.onSurfaceVariant)
             }
         } else {
             LazyColumn(Modifier.fillMaxSize().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

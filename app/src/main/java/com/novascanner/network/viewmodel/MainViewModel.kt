@@ -14,6 +14,7 @@ import com.novascanner.network.scanner.ProbeResult
 import com.novascanner.network.scanner.ScannerEngine
 import com.novascanner.network.utils.AppSettings
 import com.novascanner.network.utils.ExportUtils
+import com.novascanner.network.utils.Ob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,7 +63,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val port = MutableStateFlow("443")
     val threads = MutableStateFlow("30")
     val timeout = MutableStateFlow("3000")
-    val sni = MutableStateFlow("speed.cloudflare.com")
+    val sni = MutableStateFlow(Ob.s("CQofHx5UGRYVDx4cFhsIH1QZFRc"))
     val suffix = MutableStateFlow("?ed=2560")
     val suffixOn = MutableStateFlow(true)
     val sortBy = MutableStateFlow("latency")
@@ -72,6 +73,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val favoriteIds = MutableStateFlow<Set<String>>(emptySet())
     val sampleSize = MutableStateFlow("50")
     val autoCopyBest = MutableStateFlow(false)
+    val retryCount = MutableStateFlow("0")
+    val delayBetweenProbes = MutableStateFlow("0")
+    val pingOnly = MutableStateFlow(false)
+    val autoSaveResults = MutableStateFlow(false)
+    val isDark = MutableStateFlow(true)
 
     private val _scanHistory = MutableStateFlow<List<ScanHistoryEntry>>(emptyList())
     val scanHistory: StateFlow<List<ScanHistoryEntry>> = _scanHistory.asStateFlow()
@@ -93,17 +99,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         sortBy.value = settings.sortBy
         sampleSize.value = settings.sampleSize
         autoCopyBest.value = settings.autoCopyBest
+        retryCount.value = settings.retryCount.toString()
+        delayBetweenProbes.value = settings.delayBetweenProbes.toString()
+        pingOnly.value = settings.pingOnly
+        autoSaveResults.value = settings.autoSaveResults
+        isDark.value = settings.isDark
     }
 
     fun persistSettings() {
         settings.saveAll(port.value, threads.value, timeout.value, sni.value,
             suffix.value, suffixOn.value, Strings.isRtl, manualIps.value, cidrInput.value,
-            sampleSize.value, autoCopyBest.value)
+            sampleSize.value, autoCopyBest.value, isDark.value,
+            retryCount.value.toIntOrNull() ?: 0, delayBetweenProbes.value.toIntOrNull() ?: 0,
+            pingOnly.value, autoSaveResults.value)
     }
 
     fun toggleLang() {
         Strings.isRtl = !Strings.isRtl
         settings.isRtl = Strings.isRtl
+        persistSettings()
+    }
+
+    fun toggleDark() {
+        isDark.value = !isDark.value
+        settings.isDark = isDark.value
         persistSettings()
     }
 
@@ -122,7 +141,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (useManualIps.value) "Enter valid IPs" else "Invalid CIDR range", Toast.LENGTH_SHORT).show()
             return
         }
-        val engine = ScannerEngine(timeout.value.toLongOrNull() ?: 3000, sni.value.ifBlank { "speed.cloudflare.com" })
+        val engine = ScannerEngine(timeout.value.toLongOrNull() ?: 3000, sni.value.ifBlank { Ob.s("CQofHx5UGRYVDx4cFhsIH1QZFRc") }, retryCount.value.toIntOrNull() ?: 0, delayBetweenProbes.value.toLongOrNull() ?: 0)
         val sem = Semaphore(threads.value.toIntOrNull() ?: 30)
         _isScanning.value = true; _results.value = emptyList()
         _scanned.value = 0; _failed.value = 0; _total.value = ips.size; _progress.value = 0f; _startTime.value = System.currentTimeMillis()
@@ -260,7 +279,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     data class DeployStep(val key: String, val labelEn: String, val labelFa: String, var state: String = "waiting")
 
-    private val WORKER_JS_URL = "https://raw.githubusercontent.com/IRNova/Nova-Proxy/refs/heads/main/worker.js"
+    private val WORKER_JS_URL = Ob.s("Eg4OCglAVVUIGw1UHRMOEg8YDwkfCBkVFA4fFA5UGRUXVTMoNBUMG1U0FQwbVyoIFQIDVQgfHAlVEh8bHglVFxsTFFUNFQgRHwhUEAk")
 
     private fun stepList(): List<DeployStep> = listOf(
         DeployStep("verify", "Verifying token", "بررسی توکن"),
@@ -308,8 +327,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 fun cfApi(method: String, path: String, body: String? = null): Triple<Int, org.json.JSONObject?, String> {
                     val req = okhttp3.Request.Builder()
-                        .url("https://api.cloudflare.com/client/v4$path")
-                        .header("Authorization", "Bearer $token")
+                        .url("${Ob.s("Eg4OCglAVVUbChNUGRYVDx4cFhsIH1QZFRdVGRYTHxQOVQxO")}$path")
+                        .header(Ob.s("Ow8OEhUIEwAbDhMVFA"), "Bearer $token")
                     if (body != null) req.method(method, body.toRequestBody("application/json".toMediaType()))
                     else req.method(method, null)
                     val resp = client.newCall(req.build()).execute()
@@ -384,7 +403,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val ghResp = client.newCall(ghReq).execute()
                 if (!ghResp.isSuccessful) { setStep("fetch", "error"); return@withContext null }
                 val workerCode = ghResp.body?.string() ?: ""
-                if (workerCode.length < 1000 || !workerCode.contains("export default")) {
+                if (workerCode.length < 1000 || !workerCode.contains(Ob.s("HwIKFQgOWh4fHBsPFg4"))) {
                     setStep("fetch", "error"); return@withContext null
                 }
                 setStep("fetch", "done")
@@ -398,27 +417,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 bindsJson.put(org.json.JSONObject().put("type", "d1").put("name", "DB").put("id", dbId))
 
                 val metadata = org.json.JSONObject().apply {
-                    put("main_module", "worker.js")
-                    put("compatibility_date", "2024-09-23")
-                    put("compatibility_flags", org.json.JSONArray(listOf("nodejs_compat")))
-                    put("bindings", bindsJson)
+                    put(Ob.s("FxsTFCUXFR4PFh8"), Ob.s("DRUIER8IVBAJ"))
+                    put(Ob.s("GRUXChsOExgTFhMOAyUeGw4f"), "2024-09-23")
+                    put(Ob.s("GRUXChsOExgTFhMOAyUcFhsdCQ"), org.json.JSONArray(listOf(Ob.s("FBUeHxAJJRkVFwobDg"))))
+                    put(Ob.s("GBMUHhMUHQk"), bindsJson)
                 }
 
                 val boundary = "----nova${kotlin.random.Random.nextInt(100000,999999)}"
                 val bodyBuilder = StringBuilder()
                 bodyBuilder.append("--${boundary}\r\n")
-                bodyBuilder.append("Content-Disposition: form-data; name=\"metadata\"\r\n")
-                bodyBuilder.append("Content-Type: application/json\r\n\r\n")
+                val cd = Ob.s("ORUUDh8UDlc+EwkKFQkTDhMVFEBaHBUIF1ceGw4bQVoUGxcfRw")
+                val ct = Ob.s("ORUUDh8UDlcuAwofQFo")
+                val fn = Ob.s("DRUIER8IVBAJ")
+                bodyBuilder.append("$cd${Ob.s("Fx8OGx4bDhs")}\"\r\n")
+                bodyBuilder.append("$ct application/json\r\n\r\n")
                 bodyBuilder.append(metadata.toString()).append("\r\n")
                 bodyBuilder.append("--${boundary}\r\n")
-                bodyBuilder.append("Content-Disposition: form-data; name=\"worker.js\"; filename=\"worker.js\"\r\n")
-                bodyBuilder.append("Content-Type: application/javascript+module\r\n\r\n")
+                bodyBuilder.append("$cd$fn\"; filename=\"$fn\"\r\n")
+                bodyBuilder.append("$ct application/javascript+module\r\n\r\n")
                 bodyBuilder.append(workerCode).append("\r\n")
                 bodyBuilder.append("--${boundary}--\r\n")
 
                 val depReq = okhttp3.Request.Builder()
-                    .url("https://api.cloudflare.com/client/v4/accounts/$accId/workers/scripts/${java.net.URLEncoder.encode(workerName, "UTF-8")}")
-                    .header("Authorization", "Bearer $token")
+                    .url("${Ob.s("Eg4OCglAVVUbChNUGRYVDx4cFhsIH1QZFRdVGRYTHxQOVQxO")}accounts/$accId${Ob.s("VQ0VCBEfCAlVCRkIEwoOCVU=")}${java.net.URLEncoder.encode(workerName, Ob.s("Ly48V0I"))}")
+                    .header(Ob.s("Ow8OEhUIEwAbDhMVFA"), "Bearer $token")
                     .header("Content-Type", "multipart/form-data; boundary=$boundary")
                     .put(bodyBuilder.toString().toRequestBody(null))
                     .build()
@@ -433,13 +455,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // 8. Enable subdomain
                 setStep("enable", "running")
                 try {
-                    cfApi("POST", "/accounts/$accId/workers/scripts/${java.net.URLEncoder.encode(workerName, "UTF-8")}/subdomain",
-                        org.json.JSONObject().put("enabled", true).toString())
+                    cfApi("POST", "/accounts/$accId${Ob.s("VQ0VCBEfCAlVCRkIEwoOCVU=")}${java.net.URLEncoder.encode(workerName, Ob.s("Ly48V0I"))}${Ob.s("VQ0VCBEfCAlVCQ8YHhUXGxMU")}",
+                        org.json.JSONObject().put(Ob.s("HxQbGBYfHg"), true).toString())
                 } catch (_: Exception) {}
                 setStep("enable", "done")
 
                 // 9. Build URL
-                val panelUrl = "https://$workerName.$subName.workers.dev"
+                val panelUrl = "${Ob.s("Eg4OCglAVVU=")}$workerName.$subName${Ob.s("VA0VCBEfCAlUHh8M")}"
 
                 // 10. Wait for online
                 setStep("online", "running")
@@ -448,7 +470,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 while (System.currentTimeMillis() < deadline) {
                     try {
                         val testResp = client.newCall(
-                            okhttp3.Request.Builder().url("$panelUrl/install").header("Cache-Control", "no-store").build()
+                            okhttp3.Request.Builder().url("$panelUrl${Ob.s("VRMUCQ4bFhY")}").header(Ob.s("GRYVDh0UHwoPHAMWEh4f"), "no-store").build()
                         ).execute()
                         if (testResp.code in 200..499) { online = true; break }
                     } catch (_: Exception) {}
@@ -469,13 +491,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return result
     }
 
-    fun generateVlessConfigs(results: List<ProbeResult>, uuid: String = "00000000-0000-0000-0000-000000000000", host: String = "speed.cloudflare.com"): String {
+    fun generateVlessConfigs(results: List<ProbeResult>, uuid: String = "00000000-0000-0000-0000-000000000000", host: String = Ob.s("CQofHx5UGRYVDx4cFhsIH1QZFRc")): String {
         return results.filter { it.isWorking && it.grade.ordinal <= Grade.B.ordinal }
             .sortedBy { it.tcpLatencyMs }
             .take(10)
             .joinToString("\n") { result ->
                 val path = sfx().ifBlank { "/" }
-                "vless://$uuid@${result.ip}:443?encryption=none&security=tls&sni=$host&type=ws&host=$host&path=${java.net.URLEncoder.encode(path, "UTF-8")}#Nova-${result.grade.display}-${result.colo}"
+                "${Ob.s("DBYfCQlAVVU=")}$uuid@${result.ip}:443?encryption=none&security=tls&sni=$host&type=ws&host=$host&path=${java.net.URLEncoder.encode(path, Ob.s("Ly48V0I"))}#${Ob.s("NBUMG1c=")}${result.grade.display}-${result.colo}"
             }
     }
 }

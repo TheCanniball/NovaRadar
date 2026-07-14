@@ -42,7 +42,7 @@ fun AppNavigation(viewModel: MainViewModel) {
         animationSpec = infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "pulse")
 
     Scaffold(bottomBar = {
-        Surface(color = Surface, tonalElevation = 0.dp) {
+        Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 tabs.forEachIndexed { i, tab ->
                     if (tab.isCenter) {
@@ -51,7 +51,7 @@ fun AppNavigation(viewModel: MainViewModel) {
                             .scale(if (current == i) scale else 1f).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { current = i },
                             contentAlignment = Alignment.Center) {
                             Icon(Icons.Filled.Radar, contentDescription = Strings.get(tab.key),
-                                tint = if (current == i) Primary else TextSecondary, modifier = Modifier.size(28.dp))
+                                tint = if (current == i) Primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(28.dp))
                         }
                         Spacer(Modifier.weight(1f))
                     } else {
@@ -59,15 +59,15 @@ fun AppNavigation(viewModel: MainViewModel) {
                             horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(if (current == i) tab.selectedIcon else tab.unselectedIcon,
                                 contentDescription = Strings.get(tab.key),
-                                tint = if (current == i) Primary else TextSecondary, modifier = Modifier.size(22.dp))
-                            Text(Strings.get(tab.key), color = if (current == i) Primary else TextSecondary, fontSize = 9.sp)
+                                tint = if (current == i) Primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+                            Text(Strings.get(tab.key), color = if (current == i) Primary else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
                         }
                     }
                 }
             }
         }
     }) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding).background(Background)) {
+        Box(Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.background)) {
             when (current) { 0 -> SettingsScreen(viewModel); 1 -> ImportScreen(viewModel); 2 -> RadarScreen(viewModel); 3 -> EasyInstallerScreen(viewModel); 4 -> AboutScreen() }
         }
     }

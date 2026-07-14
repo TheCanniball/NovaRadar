@@ -28,6 +28,7 @@ fun ImportScreen(viewModel: MainViewModel) {
     val manualIps by viewModel.manualIps.collectAsState()
     val port by viewModel.port.collectAsState()
     val ctx = LocalContext.current
+    val b = MaterialTheme.colorScheme
     var importStatus by remember { mutableStateOf("") }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -44,13 +45,13 @@ fun ImportScreen(viewModel: MainViewModel) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(Background).padding(16.dp).verticalScroll(rememberScrollState())) {
-        Text(Strings.get("manual_ip"), color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+    Column(Modifier.fillMaxSize().background(b.background).padding(16.dp).verticalScroll(rememberScrollState())) {
+        Text(Strings.get("manual_ip"), color = b.onSurface, fontWeight = FontWeight.Bold, fontSize = 20.sp)
         Spacer(Modifier.height(16.dp))
 
-        Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Surface)) {
+        Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = b.surface)) {
             Column(Modifier.padding(16.dp)) {
-                Text(Strings.get("enter_ips"), color = TextSecondary, fontSize = 13.sp)
+                Text(Strings.get("enter_ips"), color = b.onSurfaceVariant, fontSize = 13.sp)
                 Spacer(Modifier.height(8.dp))
                 NovaField(value = manualIps, onValueChange = { viewModel.manualIps.value = it },
                     label = "1.2.3.4:443\n5.6.7.8:443", modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
@@ -63,9 +64,9 @@ fun ImportScreen(viewModel: MainViewModel) {
 
         Spacer(Modifier.height(16.dp))
 
-        Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Surface)) {
+        Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = b.surface)) {
             Column(Modifier.padding(16.dp)) {
-                Text(Strings.get("tab_import"), color = Primary, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text(Strings.get("tab_import"), color = b.primary, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 Spacer(Modifier.height(12.dp))
                 NovaButton("Import from file (.txt)", onClick = { filePicker.launch(arrayOf("text/plain", "*/*")) },
                     modifier = Modifier.fillMaxWidth())

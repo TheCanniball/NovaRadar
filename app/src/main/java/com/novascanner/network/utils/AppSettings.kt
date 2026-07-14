@@ -7,91 +7,90 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class AppSettings(context: Context) {
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences("nova_radar", Context.MODE_PRIVATE)
+    private val p: SharedPreferences = context.getSharedPreferences("nova_radar", Context.MODE_PRIVATE)
 
     var port: String
-        get() = prefs.getString("port", "443") ?: "443"
-        set(v) { prefs.edit { putString("port", v) } }
-
+        get() = p.getString("port", "443") ?: "443"
+        set(v) { p.edit { putString("port", v) } }
     var threads: String
-        get() = prefs.getString("threads", "30") ?: "30"
-        set(v) { prefs.edit { putString("threads", v) } }
-
+        get() = p.getString("threads", "30") ?: "30"
+        set(v) { p.edit { putString("threads", v) } }
     var timeout: String
-        get() = prefs.getString("timeout", "3000") ?: "3000"
-        set(v) { prefs.edit { putString("timeout", v) } }
-
+        get() = p.getString("timeout", "3000") ?: "3000"
+        set(v) { p.edit { putString("timeout", v) } }
     var sni: String
-        get() = prefs.getString("sni", "speed.cloudflare.com") ?: "speed.cloudflare.com"
-        set(v) { prefs.edit { putString("sni", v) } }
-
+        get() = p.getString("sni", "speed.cloudflare.com") ?: "speed.cloudflare.com"
+        set(v) { p.edit { putString("sni", v) } }
     var suffix: String
-        get() = prefs.getString("suffix", "?ed=2560") ?: "?ed=2560"
-        set(v) { prefs.edit { putString("suffix", v) } }
-
+        get() = p.getString("suffix", "?ed=2560") ?: "?ed=2560"
+        set(v) { p.edit { putString("suffix", v) } }
     var suffixOn: Boolean
-        get() = prefs.getBoolean("suffix_on", true)
-        set(v) { prefs.edit { putBoolean("suffix_on", v) } }
-
+        get() = p.getBoolean("suffixOn", true)
+        set(v) { p.edit { putBoolean("suffixOn", v) } }
     var isRtl: Boolean
-        get() = prefs.getBoolean("is_rtl", false)
-        set(v) { prefs.edit { putBoolean("is_rtl", v) } }
-
+        get() = p.getBoolean("isRtl", false)
+        set(v) { p.edit { putBoolean("isRtl", v) } }
+    var isDark: Boolean
+        get() = p.getBoolean("isDark", true)
+        set(v) { p.edit { putBoolean("isDark", v) } }
     var manualIps: String
-        get() = prefs.getString("manual_ips", "") ?: ""
-        set(v) { prefs.edit { putString("manual_ips", v) } }
-
+        get() = p.getString("manualIps", "") ?: ""
+        set(v) { p.edit { putString("manualIps", v) } }
     var cidr: String
-        get() = prefs.getString("cidr", "104.16.0.0/12") ?: "104.16.0.0/12"
-        set(v) { prefs.edit { putString("cidr", v) } }
-
+        get() = p.getString("cidr", "104.16.0.0/12") ?: "104.16.0.0/12"
+        set(v) { p.edit { putString("cidr", v) } }
     var sortBy: String
-        get() = prefs.getString("sort_by", "latency") ?: "latency"
-        set(v) { prefs.edit { putString("sort_by", v) } }
-
+        get() = p.getString("sortBy", "latency") ?: "latency"
+        set(v) { p.edit { putString("sortBy", v) } }
     var sampleSize: String
-        get() = prefs.getString("sample_size", "50") ?: "50"
-        set(v) { prefs.edit { putString("sample_size", v) } }
-
+        get() = p.getString("sampleSize", "50") ?: "50"
+        set(v) { p.edit { putString("sampleSize", v) } }
     var autoCopyBest: Boolean
-        get() = prefs.getBoolean("auto_copy_best", false)
-        set(v) { prefs.edit { putBoolean("auto_copy_best", v) } }
+        get() = p.getBoolean("autoCopyBest", false)
+        set(v) { p.edit { putBoolean("autoCopyBest", v) } }
 
-    fun saveAll(port: String, threads: String, timeout: String, sni: String,
-                suffix: String, suffixOn: Boolean, isRtl: Boolean,
-                manualIps: String, cidr: String, sampleSize: String, autoCopyBest: Boolean) {
-        prefs.edit {
-            putString("port", port); putString("threads", threads)
-            putString("timeout", timeout); putString("sni", sni)
-            putString("suffix", suffix); putBoolean("suffix_on", suffixOn)
-            putBoolean("is_rtl", isRtl); putString("manual_ips", manualIps)
-            putString("cidr", cidr); putString("sample_size", sampleSize)
-            putBoolean("auto_copy_best", autoCopyBest)
+    var retryCount: Int
+        get() = p.getInt("retryCount", 0)
+        set(v) { p.edit { putInt("retryCount", v) } }
+    var delayBetweenProbes: Int
+        get() = p.getInt("delayBetweenProbes", 0)
+        set(v) { p.edit { putInt("delayBetweenProbes", v) } }
+    var pingOnly: Boolean
+        get() = p.getBoolean("pingOnly", false)
+        set(v) { p.edit { putBoolean("pingOnly", v) } }
+    var autoSaveResults: Boolean
+        get() = p.getBoolean("autoSaveResults", false)
+        set(v) { p.edit { putBoolean("autoSaveResults", v) } }
+
+    fun saveAll(port: String, threads: String, timeout: String, sni: String, suffix: String, suffixOn: Boolean, isRtl: Boolean, manualIps: String, cidr: String, sampleSize: String, autoCopyBest: Boolean, isDark: Boolean = true, retryCount: Int = 0, delayBetweenProbes: Int = 0, pingOnly: Boolean = false, autoSaveResults: Boolean = false) {
+        p.edit {
+            putString("port", port); putString("threads", threads); putString("timeout", timeout)
+            putString("sni", sni); putString("suffix", suffix); putBoolean("suffixOn", suffixOn)
+            putBoolean("isRtl", isRtl); putString("manualIps", manualIps); putString("cidr", cidr)
+            putString("sampleSize", sampleSize); putBoolean("autoCopyBest", autoCopyBest)
+            putBoolean("isDark", isDark); putInt("retryCount", retryCount)
+            putInt("delayBetweenProbes", delayBetweenProbes); putBoolean("pingOnly", pingOnly)
+            putBoolean("autoSaveResults", autoSaveResults)
         }
     }
 
-    // ── Scan profiles ──
     data class ScanProfile(val name: String, val cidr: String, val port: String, val sni: String, val threads: String, val timeout: String)
 
     fun loadProfiles(): List<ScanProfile> {
-        val raw = prefs.getString("scan_profiles", "[]") ?: "[]"
-        val arr = try { JSONArray(raw) } catch (_: Exception) { return emptyList() }
-        return (0 until arr.length()).mapNotNull { i ->
-            val o = arr.optJSONObject(i) ?: return@mapNotNull null
-            ScanProfile(o.optString("name", ""), o.optString("cidr", ""), o.optString("port", "443"),
-                o.optString("sni", "speed.cloudflare.com"), o.optString("threads", "30"), o.optString("timeout", "3000"))
-        }.filter { it.name.isNotBlank() }
+        val raw = p.getString("scanProfiles", "[]") ?: "[]"
+        val arr = try { JSONArray(raw) } catch (_: Exception) { JSONArray() }
+        return (0 until arr.length()).map {
+            val o = arr.getJSONObject(it)
+            ScanProfile(o.optString("name", ""), o.optString("cidr", ""), o.optString("port", ""), o.optString("sni", ""), o.optString("threads", ""), o.optString("timeout", ""))
+        }
     }
 
     fun saveProfiles(profiles: List<ScanProfile>) {
         val arr = JSONArray()
-        profiles.forEach { p ->
-            arr.put(JSONObject().apply {
-                put("name", p.name); put("cidr", p.cidr); put("port", p.port)
-                put("sni", p.sni); put("threads", p.threads); put("timeout", p.timeout)
-            })
-        }
-        prefs.edit { putString("scan_profiles", arr.toString()) }
+        profiles.forEach { arr.put(JSONObject().apply {
+            put("name", it.name); put("cidr", it.cidr); put("port", it.port)
+            put("sni", it.sni); put("threads", it.threads); put("timeout", it.timeout)
+        }) }
+        p.edit { putString("scanProfiles", arr.toString()) }
     }
 }
